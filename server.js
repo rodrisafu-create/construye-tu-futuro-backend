@@ -30,8 +30,12 @@ const PRICE = {
 
 const DOMAIN = process.env.DOMAIN || "http://localhost:4242";
 
+import path from "path";
+
+app.use(express.static("public"));
+
 app.get("/", (req, res) => {
-  res.send("Backend OK ✅");
+  res.sendFile(path.resolve("public/index.html"));
 });
 
 app.post("/create-checkout-session", async (req, res) => {

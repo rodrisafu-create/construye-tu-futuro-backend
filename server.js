@@ -3,15 +3,23 @@ import Stripe from "stripe";
 import "dotenv/config";
 
 const app = express();
+app.use((req, res, next) => {
+  const origin = process.env.FRONTEND_ORIGIN;
+  if (origin) res.setHeader("Access-Control-Allow-Origin", origin);
+  res.setHeader("Access-Control-Allow-Methods", "GET,POST,OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+  if (req.method === "OPTIONS") return res.sendStatus(200);
+  next();
+});
 app.use(express.json());
-app.use(express.static("public")); // sirve public/index.html
+app.use(express.static("../public")); // sirve public/index.html
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 
 // ⬇️ Tus PRICE IDs de Stripe
 const PRICE = {
   starter: {
-    eur: "price_1ShEZbJKTO7x4rhKqoaxOeZs",
+    eur: "price_1ShHCAJKTO7x4rhK7jwwcDk6",
     dkk: "price_1ShEaNJKTO7x4rhKwhvsIsCo",
   },
   premium: {
@@ -21,6 +29,10 @@ const PRICE = {
 };
 
 const DOMAIN = process.env.DOMAIN || "http://localhost:4242";
+
+app.get("/", (req, res) => {
+  res.send("Backend OK ✅");
+});
 
 app.post("/create-checkout-session", async (req, res) => {
   try {
@@ -53,6 +65,8 @@ app.post("/create-checkout-session", async (req, res) => {
   }
 });
 
-app.listen(4242, () => {
-  console.log("Servidor activo en http://localhost:4242");
+const PORT = process.env.PORT || 4242;
+
+app.listen(PORT, () => {
+  console.log(`Servidor activo en puerto ${PORT}`);
 });

@@ -12,7 +12,7 @@ app.use((req, res, next) => {
   next();
 });
 app.use(express.json());
-app.use(express.static("../public")); // sirve public/index.html
+app.use(express.static("public")); // sirve public/index.html
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 

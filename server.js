@@ -11,6 +11,34 @@ app.use((req, res, next) => {
   if (req.method === "OPTIONS") return res.sendStatus(200);
   next();
 });
+
+// 🔔 STRIPE WEBHOOK (para saber quién se suscribe y cancela)
+app.post("/webhook", express.raw({ type: "application/json" }), (req, res) => {
+  const sig = req.headers["stripe-signature"];
+
+  let event;
+  try {
+    event = stripe.webhooks.constructEvent(
+      req.body,
+      sig,
+      process.env.STRIPE_WEBHOOK_SECRET
+    );
+  } catch (err) {
+    console.error("❌ Webhook error:", err.message);
+    return res.sendStatus(400);
+  }
+
+  if (event.type === "checkout.session.completed") {
+    const s = event.data.object;
+    console.log("✅ NUEVA SUSCRIPCIÓN:", s.customer_details?.email);
+  }
+
+  if (event.type === "customer.subscription.deleted") {
+    console.log("🛑 SUSCRIPCIÓN CANCELADA");
+  }
+
+  res.sendStatus(200);
+});
 app.use(express.json());
 app.use(express.static("public")); // sirve public/index.html
 

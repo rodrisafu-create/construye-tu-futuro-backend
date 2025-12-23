@@ -99,6 +99,45 @@ app.post("/create-checkout-session", async (req, res) => {
 
 const PORT = process.env.PORT || 4242;
 
+import bodyParser from "body-parser";
+
+// Stripe necesita el body RAW para verificar la firma
+app.post(
+  "/webhook",
+  bodyParser.raw({ type: "application/json" }),
+  (req, res) => {
+    const sig = req.headers["stripe-signature"];
+
+    let event;
+    try {
+      event = stripe.webhooks.constructEvent(
+        req.body,
+        sig,
+        process.env.STRIPE_WEBHOOK_SECRET
+      );
+    } catch (err) {
+      console.error("❌ Webhook signature failed", err.message);
+      return res.status(400).send(`Webhook Error: ${err.message}`);
+    }
+
+    // 👉 AQUÍ SABES QUÉ PASA
+    switch (event.type) {
+      case "checkout.session.completed":
+        console.log("✅ NUEVA SUSCRIPCIÓN");
+        console.log(event.data.object.customer_email);
+        break;
+
+      case "customer.subscription.deleted":
+        console.log("❌ SUSCRIPCIÓN CANCELADA");
+        break;
+
+      default:
+        console.log(`ℹ️ Evento ${event.type}`);
+    }
+
+    res.json({ received: true });
+  }
+);
 app.listen(PORT, () => {
   console.log(`Servidor activo en puerto ${PORT}`);
 });

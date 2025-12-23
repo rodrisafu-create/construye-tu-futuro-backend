@@ -19,12 +19,12 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 // ⬇️ Tus PRICE IDs de Stripe
 const PRICE = {
   starter: {
-    eur: "price_1ShHCAJKTO7x4rhK7jwwcDk6",
-    dkk: "price_1ShEaNJKTO7x4rhKwhvsIsCo",
+    eur: "price_1ShJvPGi85FmhwHAYtS2Nb3C",
+    dkk: "price_1ShJvhGi85FmhwHAHRjSMLLy",
   },
   premium: {
-    eur: "price_1ShGICJKTO7x4rhKw6HCavbL",
-    dkk: "price_1ShGIQJKTO7x4rhKFbGvGRNp",
+    eur: "price_1ShJw3Gi85FmhwHA4IjFtDWR",
+    dkk: "price_1ShJwPGi85FmhwHAnLEZAtVN",
   },
 };
 

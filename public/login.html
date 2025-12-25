@@ -34,7 +34,7 @@
       <div id="err" class="err"></div>
 
       <div class="row muted">
-        <a href="/index.html">← Volver</a>
+        <a href="/">← Volver</a>
         <a href="/terms.html">Términos</a>
       </div>
     </div>
@@ -74,12 +74,12 @@
         }
 
         localStorage.setItem("ctf_email", email);
-        if (data?.plan) localStorage.setItem("ctf_plan", data.plan);
+        if (data?.plan) localStorage.setItem("ctf_plan", String(data.plan).toLowerCase());
         if (data?.current_period_end) localStorage.setItem("ctf_period_end", data.current_period_end);
 
         window.location.href = "/dashboard.html";
       } catch (err) {
-        showError(err.message || String(err));
+        showError(err?.message || String(err));
       } finally {
         btn.disabled = false;
         btn.textContent = "Entrar";

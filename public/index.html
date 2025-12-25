@@ -62,35 +62,93 @@
 .snowStat .k{ font-size: 12px; color:#6b7280; }
 .snowStat .v{ margin-top:6px; font-family: var(--mono); font-weight:900; font-size: 18px; }
 
+/* === SNOWBALL: MONTAÑA + BOLA RODANDO === */
 .snowStage{
+  position: relative;
+  width: 100%;
+  min-height: 320px;
+  background: linear-gradient(180deg,
+    rgba(135, 206, 235, 0.22) 0%,
+    rgba(135, 206, 235, 0.08) 60%,
+    transparent 100%
+  );
   border: 1px solid rgba(0,0,0,.10);
   border-radius: 18px;
-  background: linear-gradient(180deg, rgba(11,31,58,.08), rgba(11,31,58,.02));
-  min-height: 240px;
-  position: relative;
-  overflow:hidden;
+  overflow: hidden;
 }
 
-.snowBall{
-  position:absolute;
-  left: 50%;
-  bottom: 22px;
-  transform: translateX(-50%);
-  width: 44px;
-  height: 44px;
-  border-radius: 999px;
-  background: radial-gradient(circle at 30% 30%, #ffffff 0%, #f2ece4 38%, #e7dfd5 100%);
-  border: 1px solid rgba(0,0,0,.10);
-  box-shadow: 0 16px 34px rgba(0,0,0,.12);
-  transition: width .22s ease, height .22s ease, bottom .22s ease;
+/* Pendiente / montaña */
+.snowSlope{
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 78%;
+  background: linear-gradient(135deg,
+    rgba(176, 140, 98, 0.14) 0%,
+    rgba(176, 140, 98, 0.06) 100%
+  );
+  clip-path: polygon(0 100%, 0 28%, 100% 100%);
 }
 
+/* Línea visual de la pendiente */
+.snowSlope::before{
+  content: '';
+  position: absolute;
+  top: 28%;
+  left: 0;
+  width: 140%;
+  height: 2px;
+  background: rgba(176, 140, 98, 0.25);
+  transform-origin: left top;
+  transform: rotate(-32deg);
+}
+
+/* Base “nieve” */
 .snowGround{
-  position:absolute;
-  left:0; right:0; bottom:0;
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
   height: 26px;
   background: rgba(255,255,255,.75);
   border-top: 1px solid rgba(0,0,0,.08);
+}
+
+/* La bola */
+.snowBall{
+  position: absolute;
+  border-radius: 50%;
+  background: radial-gradient(
+    circle at 35% 35%,
+    #ffffff 0%,
+    #f8f4f0 30%,
+    #e7dfd5 100%
+  );
+  box-shadow:
+    0 10px 25px rgba(0,0,0,.18),
+    inset -4px -4px 8px rgba(0,0,0,.06);
+  border: 2px solid rgba(255,255,255,.9);
+
+  /* IMPORTANTE: ahora animamos todo (posición + tamaño + rotación) */
+  transition: all 0.8s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+/* sombra */
+.snowBall::after{
+  content:'';
+  position:absolute;
+  bottom:-12px;
+  left:50%;
+  transform: translateX(-50%);
+  width:70%;
+  height:8px;
+  background: radial-gradient(ellipse, rgba(0,0,0,.15) 0%, transparent 70%);
+  border-radius:50%;
+}
+
+@media (max-width: 980px){
+  .snowStage{ min-height: 280px; }
 }
 
 @media (max-width: 980px){
@@ -495,7 +553,13 @@
         </div>
 
         <div class="langSelect">
-          <div id="planPill" style="display:none; padding:8px 10px; border-radius:999px; border:1px solid rgba(0,0,0,.12); background:#fff; font-size:12px; font-weight:900; color:#111827; white-space:nowrap;"></div>
+          <a id="planPill"
+          href="#precios"
+          data-i18n="nav_plans"
+         style="display:inline-flex; padding:8px 10px; border-radius:999px; border:1px solid rgba(0,0,0,.12); background:#fff; font-size:12px; font-weight:900; color:#111827; white-space:nowrap;">
+         Planes
+         </a>
+
           <select id="langSelect" aria-label="Language">
             <option value="es">ES</option>
             <option value="en">EN</option>
@@ -503,6 +567,7 @@
             <option value="fr">FR</option>
           </select>
           <a class="btn" href="#simulador" data-i18n="cta_sim">Simular ahora</a>
+          <a class="btn secondary" href="/login.html">Acceder</a>
         </div>
       </div>
     </div>
@@ -588,60 +653,6 @@
         </div>
       </div>
 
-      <!-- ✅ SNOWBALL: fuera de cualquier contenedor con data-i18n para que i18n NO lo reemplace -->
-      <div class="card snowWrap">
-        <div class="snowGrid">
-          <div class="snowLeft">
-            <h3 data-i18n="snow_title">Demo “bola de nieve” (renta compuesta)</h3>
-            <p data-i18n="snow_lead">
-              Mueve los años: al principio crece lento, y luego acelera. Eso es el compuesto.
-              También verás “euros futuros” vs “euros de hoy” (inflación).
-            </p>
-
-            <div class="snowControls">
-              <div>
-                <label for="snowYears" data-i18n="snow_years_label">Años</label>
-                <div class="rangeRow">
-                  <input id="snowYears" type="range" min="1" max="45" value="10" />
-                  <div class="rangePill" id="snowYearsPill">10</div>
-                </div>
-              </div>
-
-              <div class="formRow">
-                <div>
-                  <label for="snowMonthly" data-i18n="snow_monthly_label">Aporte mensual</label>
-                  <input id="snowMonthly" type="number" min="0" max="50000" value="100" />
-                </div>
-                <div>
-                  <label for="snowRate" data-i18n="snow_rate_label">Rentabilidad anual (educativa)</label>
-                  <input id="snowRate" type="number" min="0" max="30" value="8" />
-                </div>
-              </div>
-
-              <div class="snowStats">
-                <div class="snowStat">
-                  <div class="k" data-i18n="snow_future">Euros futuros</div>
-                  <div class="v" id="snowNom">-</div>
-                </div>
-                <div class="snowStat">
-                  <div class="k" data-i18n="snow_today">Euros de hoy (inflación)</div>
-                  <div class="v" id="snowReal">-</div>
-                </div>
-              </div>
-
-              <div class="legal" style="margin-top:10px;" data-i18n="snow_note">
-                “Euros de hoy” = poder adquisitivo estimado con inflación fija del 3% anual (solo para entender el concepto).
-              </div>
-            </div>
-          </div>
-
-          <div class="snowStage" aria-label="Snowball demo">
-            <div class="snowBall" id="snowBall"></div>
-            <div class="snowGround"></div>
-          </div>
-        </div>
-      </div>
-
       <!-- ✅ Texto traducible separado (ya no pisa la snowball) -->
       <div class="legal" data-i18n="comp_legal">
         Usamos rentabilidades medias a largo plazo (modelo educativo). Habrá años buenos y malos.
@@ -649,17 +660,6 @@
 
     </div>
   </section>
-
-  <div class="container">
-    <div class="legal" style="margin-top:12px;">
-      <b>Demo:</b> <span style="color:#374151;">cambiar plan rápido</span>
-      <div style="margin-top:10px; display:flex; gap:10px; flex-wrap:wrap;">
-        <button class="btn secondary" onclick="setPlan('free')">Free</button>
-        <button onclick="setPlan('starter')">Suscribirme</button>
-        <button onclick="setPlan('premium')">Quiero Premium</button>
-      </div>
-    </div>
-  </div>
 
   <!-- SIMULATOR -->
   <section id="simulador">
@@ -783,7 +783,7 @@
       <p class="sectionLead" data-i18n="guide_lead">
         Te decimos exactamente cómo empezar desde 0: elegir broker, abrir la cuenta y hacer tu primera compra.
       </p>
-
+      <a class="btn" href="/login.html">Entrar a mi guía</a>
       <div class="card" style="overflow:hidden;">
         <div id="guideLock" style="padding:18px; background: rgba(0,0,0,.03); border-bottom:1px solid rgba(0,0,0,.06); display:none;">
           <div style="font-weight:900; margin-bottom:6px;" data-i18n="guide_locked_title">Desbloquea Starter</div>
@@ -888,14 +888,85 @@
       </div>
     </div>
   </section>
+<div style="margin-top:14px; display:flex; gap:12px; flex-wrap:wrap; font-size:13px;">
+  <a href="/terms.html" target="_blank">Términos</a>
+  <a href="/disclaimer.html" target="_blank">Aviso legal</a>
+  <a href="mailto:construyetufuturo.web@gmail.com">
+  construyetufuturo.web@gmail.com
+</a>
+</div>
 
+<!-- SNOWBALL (signature) -->
+<section id="snowball-signature" style="padding:56px 0;">
+  <div class="container">
+    <div class="card snowWrap snowSignature">
+      <div class="snowGrid">
+        <div class="snowLeft">
+          <h2 class="sectionTitle" style="margin-bottom:10px;" data-i18n="snow_title">
+            La bola de nieve (mi forma favorita de explicarlo)
+          </h2>
+          <p class="sectionLead" style="margin-bottom:14px;" data-i18n="snow_lead">
+            Cuando eres joven, una “pelotita” pequeña puede hacerse enorme si la dejas rodar con tiempo. Eso es el interés compuesto.
+          </p>
+
+          <div class="snowControls">
+            <div>
+              <label for="snowYears" data-i18n="snow_years_label">Años</label>
+              <div class="rangeRow">
+                <input id="snowYears" type="range" min="1" max="45" value="10" />
+                <div class="rangePill" id="snowYearsPill">10</div>
+              </div>
+            </div>
+
+            <div class="formRow">
+              <div>
+                <label for="snowMonthly" data-i18n="snow_monthly_label">Aporte mensual</label>
+                <input id="snowMonthly" type="number" min="0" max="50000" value="100" />
+              </div>
+              <div>
+                <label for="snowRate" data-i18n="snow_rate_label">Rentabilidad anual (educativa)</label>
+                <input id="snowRate" type="number" min="0" max="30" value="8" />
+              </div>
+            </div>
+
+            <div class="snowStats">
+              <div class="snowStat">
+                <div class="k" data-i18n="snow_future">Euros futuros</div>
+                <div class="v" id="snowNom">-</div>
+              </div>
+              <div class="snowStat">
+                <div class="k" data-i18n="snow_today">Euros de hoy (inflación)</div>
+                <div class="v" id="snowReal">-</div>
+              </div>
+            </div>
+
+            <div class="legal" style="margin-top:10px;" data-i18n="snow_note">
+              “Euros de hoy” = poder adquisitivo estimado con inflación fija del 3% anual (solo para entender el concepto).
+            </div>
+          </div>
+        </div>
+
+         <div class="snowStage snowStageRoll" id="snowStage" aria-label="Snowball signature">
+   <div class="snowSlope"></div>
+   <div class="snowBall" id="snowBall"></div>
+   <div class="snowGround"></div>
+   </div>
+      </div>
+    </div>
+  </div>
+</section>
   <footer>
     <div class="container">
       <div style="font-weight:900; color:#111827;" data-i18n="brand_main">Construye tu futuro</div>
       <div class="legal" data-i18n="footer_legal">
         Aviso: contenido educativo. No es asesoramiento financiero. Rentabilidades pasadas no garantizan rentabilidades futuras.
       </div>
-      <div style="margin-top:10px;">&copy; <span id="year"></span></div>
+      <div style="margin-top:10px;"><div style="margin-top:10px;">
+  Contacto:
+  <a href="mailto:construyetufuturo.web@gmail.com">
+    construyetufuturo.web@gmail.com
+  </a>
+</div>&copy; <span id="year"></span></div>
     </div>
   </footer>
 
@@ -946,7 +1017,8 @@ const PORTFOLIOS = {
         guide_month_body: "Cada mes te llega un mensaje corto: entra, compra, y no hagas nada más.",
         guide_note: "Nota: no custodiamos tu dinero y no ejecutamos órdenes. Tú inviertes desde tu broker.",
         risk_preview_note: "Vista previa: para desbloquear Arriesgado necesitas Premium.",
-
+        
+        nav_plans: "Planes",
         brand_main: "Construye tu futuro",
         brand_sub: "con menos de lo que te imaginas",
         nav_compound: "Interés compuesto",
@@ -1071,6 +1143,7 @@ const PORTFOLIOS = {
         guide_note: "Note: we don't custody your money and we don't execute orders. You invest from your own broker.",
         risk_preview_note: "Preview: unlock Aggressive with Premium.",
 
+        nav_plans: "Plans",
         brand_main: "Build your future",
         brand_sub: "with less than you think",
         nav_compound: "Compound interest",
@@ -1195,6 +1268,7 @@ const PORTFOLIOS = {
         guide_note: "Note : on ne garde pas ton argent et on n’exécute pas d’ordres. Tu investis via ton courtier.",
         risk_preview_note: "Aperçu : débloque “Risque élevé” avec Premium.",
 
+        nav_plans: "Plans",
         brand_main: "Construis ton avenir",
         brand_sub: "avec moins que tu ne l’imagines",
         nav_compound: "Intérêt composé",
@@ -1319,6 +1393,7 @@ const PORTFOLIOS = {
         guide_note: "Note: vi opbevarer ikke dine penge og udfører ikke ordrer. Du investerer via din egen broker.",
         risk_preview_note: "Preview: lås høj risiko op med Premium.",
 
+        nav_plans: "Planer",
         brand_main: "Byg din fremtid",
         brand_sub: "med mindre end du tror",
         nav_compound: "Rentes rente",
@@ -1428,22 +1503,17 @@ const PORTFOLIOS = {
   return localStorage.getItem("plan") || "free";
 }
 
-// ✅ demo: cambia el plan local (sin Stripe)
-function setPlan(plan){
-  localStorage.setItem("plan", plan);
-  updateLocks();
-  simulate();
-}
 // ✅ pago real: Stripe
 async function buyPlan(plan){
   const currency = (currentLang === "da") ? "DKK" : "EUR";
 
   try{
-    const res = await fetch("/create-checkout-session", {
-      method: "POST",
-      headers: {"Content-Type":"application/json"},
-      body: JSON.stringify({ plan, currency })
-    });
+  const API_BASE = "https://construye-tu-futuro.onrender.com";
+  const res = await fetch(`${API_BASE}/create-checkout-session`, {
+  method: "POST",
+  headers: {"Content-Type":"application/json"},
+  body: JSON.stringify({ plan, currency })
+});
 
     const data = await res.json();
 
@@ -1469,9 +1539,10 @@ async function buyPlan(plan){
       const d = i18n[currentLang] || i18n.es;
       const pill = document.getElementById("planPill");
       if (pill){
-        pill.style.display = "inline-flex";
-        pill.textContent = d.plan_active + planLabel(plan);
+      // ya no mostramos "Plan: X", ahora es un botón fijo que baja a #precios
+      pill.style.display = "inline-flex";
       }
+      
       const lock = document.getElementById("guideLock");
       const content = document.getElementById("guideContent");
       if (lock && content){
@@ -1484,15 +1555,37 @@ async function buyPlan(plan){
     }
 
     // ----- Utilities -----
-    function getCurrency(){
-      return currentLang === "da" ? "DKK" : "EUR";
-    }
-    const fmtMoney = (n) => new Intl.NumberFormat(
-      currentLang === "da" ? "da-DK" : (currentLang === "en" ? "en-GB" : "es-ES"),
-      { style:"currency", currency:getCurrency(), maximumFractionDigits:0 }
-    ).format(n);
+// ----- Utilities -----
+function getCurrency(){
+  return currentLang === "da" ? "DKK" : "EUR";
+}
 
-    function fillAgeSelect(selectEl, min, max, selected){
+function fmtMoneyLocal(n){
+  const cur = getCurrency();
+  const locale =
+    currentLang === "da" ? "da-DK" :
+    currentLang === "en" ? "en-GB" :
+    currentLang === "fr" ? "fr-FR" : "es-ES";
+
+  const abs = Math.abs(Number(n) || 0);
+
+  // ✅ precisión adaptativa:
+  // - < 10.000 => 2 decimales
+  // - 10.000 a 1.000.000 => 0 decimales
+  // - >= 1.000.000 => 0 decimales (igual)
+  const digits = abs < 10000 ? 2 : 0;
+
+  return new Intl.NumberFormat(locale, {
+    style: "currency",
+    currency: cur,
+    minimumFractionDigits: digits,
+    maximumFractionDigits: digits
+  }).format(n);
+}
+
+const fmtMoney = (n) => fmtMoneyLocal(n);
+
+function fillAgeSelect(selectEl, min, max, selected){
       selectEl.innerHTML = "";
       for(let a=min; a<=max; a++){
         const opt = document.createElement("option");
@@ -1650,18 +1743,50 @@ async function buyPlan(plan){
 
       const snowNom = document.getElementById("snowNom");
       const snowReal = document.getElementById("snowReal");
-      if (snowNom) snowNom.textContent = fmtMoney(fv);
-      if (snowReal) snowReal.textContent = fmtMoney(real);
+    if (snowNom) snowNom.textContent = fmtMoneyLocal(fv);
+    if (snowReal) snowReal.textContent = fmtMoneyLocal(real);
 
-      const ball = document.getElementById("snowBall");
-      if (ball){
-        const minS = 44, maxS = 170;
-        const t = (y - 1) / (45 - 1);
-        const size = minS + (maxS - minS) * t;
-        ball.style.width = size + "px";
-        ball.style.height = size + "px";
-        ball.style.bottom = (22 + 40 * t) + "px";
-      }
+const ball = document.getElementById("snowBall");
+const stage = document.getElementById("snowStage");
+if (ball && stage){
+  // progreso 0..1
+  const t = (y - 1) / (45 - 1);
+
+  // tamaño (suave, se acelera al final)
+  const minS = 44, maxS = 170;
+  const size = minS + (maxS - minS) * Math.pow(t, 0.7);
+
+  // medidas del escenario
+  const W = stage.clientWidth;
+  const H = stage.clientHeight;
+
+  // La pendiente va aprox de (5%, 28%) a (85%, 75%)
+  const startX = 0.05, endX = 0.85;
+  const startY = 0.28, endY = 0.75;
+
+  // posición ideal
+  const xIdeal = (startX + (endX - startX) * t) * W;
+  const yIdeal = (startY + (endY - startY) * t) * H;
+
+  // CLAMP: para que la bola no se recorte por overflow:hidden en móvil
+  const pad = size * 0.55; // margen aprox por translate(-50%)
+  const x = Math.min(Math.max(xIdeal, pad), W - pad);
+  const yPos = Math.min(Math.max(yIdeal, pad), H - pad);
+
+  // rotación realista: gira según la distancia recorrida
+  const startPx = startX * W;
+  const startPy = startY * H;
+  const dist = Math.hypot(x - startPx, yPos - startPy);
+  const circumference = Math.PI * size;
+  const turns = dist / Math.max(1, circumference);
+  const rot = turns * 360;
+
+  ball.style.width = `${size}px`;
+  ball.style.height = `${size}px`;
+  ball.style.left = `${x}px`;
+  ball.style.top = `${yPos}px`;
+  ball.style.transform = `translate(-50%, -50%) rotate(${rot}deg)`;
+}
     }
 
     let chart;
@@ -1677,6 +1802,7 @@ let p = PORTFOLIOS[key];
 const plan = getPlan();
 
 const isPreviewRisk = (key === "risk" && plan !== "premium");
+const shownNominal = isPreviewRisk ? PORTFOLIOS.usa.nominal : p.nominal;
 if (isPreviewRisk){
   // en demo, si no tienes premium, lo hacemos igual que USA para que no “prometa” más
   p = { ...p, nominal: PORTFOLIOS.usa.nominal, premium:true };
@@ -1703,7 +1829,7 @@ if (key === "risk" && plan !== "premium"){
 const strategyName = dict[p.nameKey] || "";
 document.getElementById("ratesNote").innerHTML =
   `<b>${currentLang==="en"?"Educational assumption":(currentLang==="da"?"Uddannelsesantagelse":(currentLang==="fr"?"Hypothèse éducative":"Supuesto educativo"))}:</b> ${strategyName}. 
-  <span style="font-family:var(--mono)">${Math.round(p.nominal*100)}% nominal</span>. 
+  <span style="font-family:var(--mono)">${Math.round(shownNominal*100)}% nominal</span>.
   ${currentLang==="en"?"Inflation assumed":(currentLang==="da"?"Antaget inflation":(currentLang==="fr"?"Inflation supposée":"Inflación asumida"))}: 
   <span style="font-family:var(--mono)">3%/${currentLang==="da"?"år":(currentLang==="es"?"año":(currentLang==="fr"?"an":"year"))}</span>.`;
 
@@ -1714,8 +1840,16 @@ const finalNom = S.invNom[S.invNom.length - 1] ?? 0;
 const finalReal = S.invReal[S.invReal.length - 1] ?? 0;
 
 const totalSavingsNom = initial + monthly * 12 * years;
-const totalSavingsReal = totalSavingsNom / Math.pow(1 + INFLATION, years);
-
+const totalSavingsReal = savingsRealMonthly(initial, monthly, years);
+function savingsRealMonthly(initial, monthly, years){
+  const months = years * 12;
+  let s = initial; // valor en euros de hoy
+  for (let m = 1; m <= months; m++){
+    const tYears = m / 12;
+    s += monthly / Math.pow(1 + INFLATION, tYears);
+  }
+  return s;
+}
 document.getElementById("resNominal").textContent = fmtMoney(finalNom);
 document.getElementById("resReal").textContent = fmtMoney(finalReal);
 document.getElementById("resSaveNom").textContent = fmtMoney(totalSavingsNom);
@@ -1751,30 +1885,31 @@ chart = new Chart(ctx, {
       legend: { position:"bottom" },
       tooltip: { callbacks: { label: (c)=> `${c.dataset.label}: ${fmtMoney(c.parsed.y)}` } }
     },
-    scales: {
-      y: {
-        ticks: {
-          callback: (v) => {
-            const n = Number(v);
-            const cur = getCurrency();
-            const isDKK = cur === "DKK";
-            const M = isDKK ? "Mkr" : "M€";
-            const K = isDKK ? "kkr" : "k€";
-            const U = isDKK ? "kr"  : "€";
-            if (Math.abs(n) >= 1_000_000) return (n/1_000_000).toFixed(1) + M;
-            if (Math.abs(n) >= 1_000) return (n/1_000).toFixed(0) + K;
-            return n + U;
-          }
-        }
-      },
-      x: { ticks: { maxTicksLimit: 10 } }
+scales: {
+  y: {
+    type: "linear",
+    beginAtZero: true,
+    ticks: {
+      callback: (v) => {
+        const n = Number(v);
+        const cur = getCurrency();
+        const isDKK = cur === "DKK";
+        const M = isDKK ? "Mkr" : "M€";
+        const K = isDKK ? "kkr" : "k€";
+        const U = isDKK ? "kr"  : "€";
+        if (Math.abs(n) >= 1_000_000) return (n/1_000_000).toFixed(1) + M;
+        if (Math.abs(n) >= 1_000) return (n/1_000).toFixed(0) + K;
+        return n + U;
+      }
     }
+  },
+  x: { ticks: { maxTicksLimit: 10 } }
+}
   }
 });
 
 updateSnowball();
       // keep snowball aligned with language formatting
-      updateSnowball();
     }
 
     function resetForm(){

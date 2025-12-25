@@ -1,0 +1,432 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Dashboard · Construye tu futuro</title>
+  <style>
+    :root{
+      --bg:#0b1f3a; --panel:#0e2a4e; --cream:#f2ece4; --text:#0a0a0a; --muted:#6b7280;
+      --white:#ffffff; --btn:#b08c62; --btnHover:#c59a6c; --ring: rgba(176,140,98,.35);
+      --card:#ffffff; --border: rgba(0,0,0,.08); --shadowSoft: 0 10px 22px rgba(0,0,0,.08);
+      --radius: 18px; --max: 980px;
+      --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+      --sans: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial;
+    }
+    *{box-sizing:border-box}
+    body{ margin:0; font-family:var(--sans); color:var(--text); background: var(--cream); line-height:1.35; }
+    .container{ max-width: var(--max); margin: 0 auto; padding: 0 18px; }
+
+    .nav{
+      position:sticky; top:0; z-index:30;
+      background: rgba(242,236,228,.92);
+      backdrop-filter: blur(10px);
+      border-bottom: 1px solid rgba(0,0,0,.06);
+    }
+    .navInner{ display:flex; align-items:center; justify-content:space-between; padding: 14px 0; gap: 12px; }
+    .brand{ display:flex; gap:10px; align-items:baseline; font-weight:900; letter-spacing:-.01em; }
+    .brand .main{ font-size: 15px; color:#111827; }
+    .brand .sub{ font-size: 12px; color:#6b7280; font-weight:700; }
+    .right{ display:flex; gap:10px; align-items:center; }
+    select{
+      padding: 9px 10px; border-radius: 12px; border: 1px solid rgba(0,0,0,.14);
+      background:#fff; font-weight:800; font-size: 13px; outline:none;
+    }
+    .pill{
+      display:inline-flex; align-items:center; gap:8px; padding:8px 10px; border-radius:999px;
+      border:1px solid rgba(0,0,0,.12); background:#fff; font-size:12px; font-weight:900; color:#111827;
+      white-space:nowrap;
+    }
+    .btn{
+      display:inline-flex; align-items:center; justify-content:center;
+      padding: 11px 16px; border-radius: 14px; border: 1px solid rgba(0,0,0,.10);
+      background: var(--btn); color: #1b1208; font-weight:900; cursor:pointer;
+      box-shadow: 0 10px 18px rgba(176,140,98,.25);
+      text-decoration:none;
+    }
+    .btn:hover{ background: var(--btnHover); }
+
+    header.hero{
+      background: linear-gradient(180deg, var(--bg) 0%, var(--panel) 100%);
+      color: var(--white);
+      padding: 32px 0 22px;
+    }
+    .hero h1{ margin:0 0 10px; letter-spacing:-.03em; font-size: clamp(26px, 4vw, 36px); }
+    .hero p{ margin:0; color: rgba(255,255,255,.86); max-width: 80ch; }
+
+    section{ padding: 22px 0 44px; }
+    .grid{ display:grid; grid-template-columns: 1fr; gap: 14px; }
+    .card{
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      box-shadow: var(--shadowSoft);
+      overflow:hidden;
+    }
+    .cardPad{ padding: 18px; }
+
+    .titleRow{ display:flex; justify-content:space-between; align-items:flex-start; gap:12px; }
+    .sectionTitle{ margin:0; font-size: 18px; letter-spacing:-.01em; }
+    .small{ color:#6b7280; font-size: 13px; line-height:1.5; }
+
+    .steps{ margin: 10px 0 0; padding: 0; list-style:none; }
+    .steps li{
+      display:flex; gap:10px; padding: 10px 10px; border-radius: 14px;
+      background: rgba(0,0,0,.03); border: 1px solid rgba(0,0,0,.06);
+      margin: 10px 0;
+    }
+    .n{
+      width:26px; height:26px; border-radius: 9px;
+      display:flex; align-items:center; justify-content:center;
+      background: rgba(176,140,98,.22);
+      border: 1px solid rgba(176,140,98,.35);
+      color: #3c2a17;
+      font-weight:900; flex:0 0 auto;
+    }
+    .t{ font-weight:900; color:#111827; font-size:14px; }
+    .d{ color:#374151; font-size:13px; margin-top: 2px; line-height:1.4; }
+
+    .monoBox{
+      margin-top: 10px;
+      padding: 12px;
+      border-radius: 16px;
+      background: rgba(0,0,0,.03);
+      border: 1px solid rgba(0,0,0,.06);
+      font-family: var(--mono);
+      font-size: 13px;
+      color:#111827;
+      line-height:1.5;
+      white-space:pre-wrap;
+    }
+
+    .checklist{
+      display:grid;
+      grid-template-columns: 1fr;
+      gap: 8px;
+      margin-top: 10px;
+    }
+    .check{
+      display:flex; gap:10px; align-items:flex-start;
+      padding: 10px 10px; border-radius: 14px;
+      background:#fff;
+      border: 1px solid rgba(0,0,0,.08);
+    }
+    .box{
+      width:18px; height:18px; border-radius: 6px;
+      border: 2px solid rgba(0,0,0,.20);
+      flex:0 0 auto; margin-top:1px;
+    }
+
+    .lock{
+      padding: 14px;
+      border-radius: 16px;
+      background: rgba(176,140,98,.18);
+      border: 1px solid rgba(176,140,98,.35);
+      color:#3c2a17;
+      line-height: 1.45;
+      font-size: 13px;
+    }
+
+    footer{ padding: 24px 0 38px; color:#6b7280; font-size: 13px; }
+    a{ color:inherit; }
+  </style>
+</head>
+
+<body>
+  <div class="nav">
+    <div class="container">
+      <div class="navInner">
+        <div class="brand">
+          <div class="main" data-i18n="brand_main">Construye tu futuro</div>
+          <div class="sub" data-i18n="brand_sub">área privada</div>
+        </div>
+
+        <div class="right">
+          <div class="pill" id="planPill">Plan: -</div>
+          <select id="langSelect" aria-label="Language">
+            <option value="es">ES</option>
+            <option value="en">EN</option>
+          </select>
+          <a class="btn" href="/index.html" data-i18n="btn_back">Volver</a>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <header class="hero">
+    <div class="container">
+      <h1 data-i18n="h1">Tu sistema para no fallar</h1>
+      <p data-i18n="lead">
+        Esto no va de “aprender más”. Va de hacer lo correcto cada mes sin pensar.
+        Tu ventaja es el tiempo + consistencia.
+      </p>
+    </div>
+  </header>
+
+  <section>
+    <div class="container">
+      <div class="grid">
+
+        <!-- 1) Bienvenida -->
+        <div class="card">
+          <div class="cardPad">
+            <div class="titleRow">
+              <h2 class="sectionTitle" data-i18n="welcome_title">1) Bienvenida (léelo en 20 segundos)</h2>
+              <div class="small" id="helloEmail"></div>
+            </div>
+
+            <ul class="steps">
+              <li>
+                <div class="n">1</div>
+                <div>
+                  <div class="t" data-i18n="welcome_1_t">Tu trabajo es simple</div>
+                  <div class="d" data-i18n="welcome_1_d">Aportar cada mes y no tocar nada más.</div>
+                </div>
+              </li>
+              <li>
+                <div class="n">2</div>
+                <div>
+                  <div class="t" data-i18n="welcome_2_t">Lo difícil no es invertir</div>
+                  <div class="d" data-i18n="welcome_2_d">Lo difícil es ser constante 24–60 meses. Por eso existe esto.</div>
+                </div>
+              </li>
+              <li>
+                <div class="n">3</div>
+                <div>
+                  <div class="t" data-i18n="welcome_3_t">Regla de oro</div>
+                  <div class="d" data-i18n="welcome_3_d"><b>No vendas</b> por emociones. Si dudas, no hagas nada.</div>
+                </div>
+              </li>
+            </ul>
+
+            <div class="monoBox" data-i18n="welcome_box">
+Tu objetivo no es “ganar más este año”.
+Tu objetivo es “no abandonar”.
+
+Si tú no paras, el interés compuesto no para.
+            </div>
+          </div>
+        </div>
+
+        <!-- 2) Tu plan en 1 hoja -->
+        <div class="card">
+          <div class="cardPad">
+            <h2 class="sectionTitle" data-i18n="onepage_title">2) Tu plan en 1 hoja</h2>
+            <div class="small" data-i18n="onepage_lead">
+              Esto es lo único que necesitas. Cópialo a Notas y sigue el proceso.
+            </div>
+
+            <div class="monoBox" data-i18n="onepage_box">
+1) Broker (elige 1)
+- Opción A: Broker conocido y barato (tu país)
+- Opción B: Alternativa sencilla (si la A te da problemas)
+
+2) Estrategia (elige 1)
+- Global (simple): 1 ETF global diversificado
+- USA (más volátil): 1 ETF USA diversificado
+
+3) Regla mensual (siempre igual)
+- Día fijo del mes: ___
+- Cantidad fija: ___ €
+- Acción: comprar el mismo ETF y cerrar sesión
+
+4) Regla de oro
+- No vender
+- No “optimizar”
+- No mirar noticias
+            </div>
+
+            <div class="small" style="margin-top:10px;" data-i18n="onepage_note">
+              * En Premium, esta hoja se convierte en “plan personalizado”. En Starter es simple a propósito.
+            </div>
+          </div>
+        </div>
+
+        <!-- 3) Checklist mensual -->
+        <div class="card">
+          <div class="cardPad">
+            <h2 class="sectionTitle" data-i18n="check_title">3) Checklist mensual (60 segundos)</h2>
+            <div class="small" data-i18n="check_lead">Hazlo una vez al mes. Ya está.</div>
+
+            <div class="checklist">
+              <div class="check"><div class="box"></div><div data-i18n="c1">Entrar al broker</div></div>
+              <div class="check"><div class="box"></div><div data-i18n="c2">Transferir la cantidad fija (si hace falta)</div></div>
+              <div class="check"><div class="box"></div><div data-i18n="c3">Comprar el ETF elegido</div></div>
+              <div class="check"><div class="box"></div><div data-i18n="c4">Cerrar sesión</div></div>
+              <div class="check"><div class="box"></div><div data-i18n="c5">No hacer nada más</div></div>
+            </div>
+
+            <div class="monoBox" data-i18n="check_box">
+Tu ventaja no es “ser listo”.
+Tu ventaja es repetir lo correcto.
+
+Consistencia > intensidad.
+            </div>
+          </div>
+        </div>
+
+        <!-- 4) Premium lock -->
+        <div class="card" id="premiumCard" style="display:none;">
+          <div class="cardPad">
+            <h2 class="sectionTitle" data-i18n="prem_title">Premium</h2>
+            <div class="lock" data-i18n="prem_lock">
+              Estás viendo una demo. Para acceder a cartera personalizada + checklist ampliado necesitas Premium.
+            </div>
+            <div style="margin-top:12px;">
+              <a class="btn" href="/index.html#precios" data-i18n="prem_btn">Ver Premium</a>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <footer>
+        <div data-i18n="foot">
+          Aviso: contenido educativo. No es asesoramiento financiero.
+        </div>
+      </footer>
+    </div>
+  </section>
+
+  <script>
+    // --- i18n ---
+    const i18n = {
+      es: {
+        brand_main:"Construye tu futuro",
+        brand_sub:"área privada",
+        btn_back:"Volver",
+        h1:"Tu sistema para no fallar",
+        lead:"Esto no va de “aprender más”. Va de hacer lo correcto cada mes sin pensar. Tu ventaja es el tiempo + consistencia.",
+        welcome_title:"1) Bienvenida (léelo en 20 segundos)",
+        welcome_1_t:"Tu trabajo es simple",
+        welcome_1_d:"Aportar cada mes y no tocar nada más.",
+        welcome_2_t:"Lo difícil no es invertir",
+        welcome_2_d:"Lo difícil es ser constante 24–60 meses. Por eso existe esto.",
+        welcome_3_t:"Regla de oro",
+        welcome_3_d:"<b>No vendas</b> por emociones. Si dudas, no hagas nada.",
+        welcome_box:"Tu objetivo no es “ganar más este año”.\nTu objetivo es “no abandonar”.\n\nSi tú no paras, el interés compuesto no para.",
+        onepage_title:"2) Tu plan en 1 hoja",
+        onepage_lead:"Esto es lo único que necesitas. Cópialo a Notas y sigue el proceso.",
+        onepage_box:"1) Broker (elige 1)\n- Opción A: Broker conocido y barato (tu país)\n- Opción B: Alternativa sencilla (si la A te da problemas)\n\n2) Estrategia (elige 1)\n- Global (simple): 1 ETF global diversificado\n- USA (más volátil): 1 ETF USA diversificado\n\n3) Regla mensual (siempre igual)\n- Día fijo del mes: ___\n- Cantidad fija: ___ €\n- Acción: comprar el mismo ETF y cerrar sesión\n\n4) Regla de oro\n- No vender\n- No “optimizar”\n- No mirar noticias",
+        onepage_note:"* En Premium, esta hoja se convierte en “plan personalizado”. En Starter es simple a propósito.",
+        check_title:"3) Checklist mensual (60 segundos)",
+        check_lead:"Hazlo una vez al mes. Ya está.",
+        c1:"Entrar al broker",
+        c2:"Transferir la cantidad fija (si hace falta)",
+        c3:"Comprar el ETF elegido",
+        c4:"Cerrar sesión",
+        c5:"No hacer nada más",
+        check_box:"Tu ventaja no es “ser listo”.\nTu ventaja es repetir lo correcto.\n\nConsistencia > intensidad.",
+        prem_title:"Premium",
+        prem_lock:"Estás viendo una demo. Para acceder a cartera personalizada + checklist ampliado necesitas Premium.",
+        prem_btn:"Ver Premium",
+        foot:"Aviso: contenido educativo. No es asesoramiento financiero."
+      },
+      en: {
+        brand_main:"Build your future",
+        brand_sub:"private area",
+        btn_back:"Back",
+        h1:"Your system to never quit",
+        lead:"This isn’t about “learning more”. It’s about doing the right thing every month without thinking. Your edge is time + consistency.",
+        welcome_title:"1) Welcome (20 seconds)",
+        welcome_1_t:"Your job is simple",
+        welcome_1_d:"Contribute every month and do nothing else.",
+        welcome_2_t:"Investing isn’t the hard part",
+        welcome_2_d:"The hard part is staying consistent for 24–60 months. That’s why this exists.",
+        welcome_3_t:"Golden rule",
+        welcome_3_d:"<b>Don’t sell</b> emotionally. If you doubt, do nothing.",
+        welcome_box:"Your goal isn’t “make more this year”.\nYour goal is “don’t quit”.\n\nIf you don’t stop, compounding doesn’t stop.",
+        onepage_title:"2) Your one-page plan",
+        onepage_lead:"This is all you need. Copy it into Notes and follow the process.",
+        onepage_box:"1) Broker (choose 1)\n- Option A: a well-known low-fee broker (your country)\n- Option B: a simple alternative (if A gives you problems)\n\n2) Strategy (choose 1)\n- Global (simple): 1 diversified global ETF\n- USA (more volatile): 1 diversified US ETF\n\n3) Monthly rule (always the same)\n- Fixed day each month: ___\n- Fixed amount: ___ €\n- Action: buy the same ETF and log out\n\n4) Golden rule\n- Don’t sell\n- Don’t “optimize”\n- Don’t watch the news",
+        onepage_note:"* In Premium, this becomes a “personalized plan”. Starter stays simple on purpose.",
+        check_title:"3) Monthly checklist (60 seconds)",
+        check_lead:"Do it once a month. That’s it.",
+        c1:"Log into your broker",
+        c2:"Transfer the fixed amount (if needed)",
+        c3:"Buy your chosen ETF",
+        c4:"Log out",
+        c5:"Do nothing else",
+        check_box:"Your edge isn’t “being smart”.\nYour edge is repeating what works.\n\nConsistency > intensity.",
+        prem_title:"Premium",
+        prem_lock:"You’re seeing a demo. To access a personalized portfolio + expanded checklist you need Premium.",
+        prem_btn:"See Premium",
+        foot:"Disclaimer: educational content. Not financial advice."
+      }
+    };
+
+    function getPlan(){
+      return localStorage.getItem("plan") || "free";
+    }
+    function planLabel(plan, lang){
+      if(lang === "en"){
+        if(plan === "premium") return "Premium";
+        if(plan === "starter") return "Starter";
+        return "Free";
+      }
+      if(plan === "premium") return "Premium";
+      if(plan === "starter") return "Starter";
+      return "Gratis";
+    }
+    function getLang(){
+      return localStorage.getItem("lang") || "es";
+    }
+
+    function applyI18n(lang){
+      document.documentElement.lang = lang;
+      const d = i18n[lang] || i18n.es;
+
+      document.querySelectorAll("[data-i18n]").forEach(el=>{
+        const key = el.getAttribute("data-i18n");
+        if(!key || d[key] == null) return;
+        const v = String(d[key]);
+        if(v.includes("<")) el.innerHTML = v; else el.textContent = v;
+      });
+    }
+
+    // --- simple gate (MVP) ---
+const API_BASE = "https://construye-tu-futuro.onrender.com";
+const token = localStorage.getItem("token");
+if(!token) window.location.href="/login.html";
+
+    // plan pill
+    const langSel = document.getElementById("langSelect");
+    const savedLang = getLang();
+    langSel.value = (savedLang === "en" ? "en" : "es");
+    applyI18n(langSel.value);
+
+    const plan = getPlan();
+    document.getElementById("planPill").textContent = (langSel.value === "en" ? "Plan: " : "Plan: ") + planLabel(plan, langSel.value);
+
+    // show premium upsell if not premium
+    const premiumCard = document.getElementById("premiumCard");
+    if(plan !== "premium") premiumCard.style.display = "block";
+
+    // hello email
+    const email = (localStorage.getItem("login_email") || "").trim();
+    const hello = document.getElementById("helloEmail");
+    if(hello){
+      if(email){
+        hello.textContent = (langSel.value === "en") ? `Signed in as: ${email}` : `Sesión: ${email}`;
+      }else{
+        hello.textContent = (langSel.value === "en") ? `Signed in` : `Sesión iniciada`;
+      }
+    }
+
+    langSel.addEventListener("change", (e)=>{
+      const lang = e.target.value;
+      localStorage.setItem("lang", lang);
+      applyI18n(lang);
+      document.getElementById("planPill").textContent = "Plan: " + planLabel(plan, lang);
+
+      if(hello){
+        if(email){
+          hello.textContent = (lang === "en") ? `Signed in as: ${email}` : `Sesión: ${email}`;
+        }else{
+          hello.textContent = (lang === "en") ? `Signed in` : `Sesión iniciada`;
+        }
+      }
+    });
+  </script>
+</body>
+</html>

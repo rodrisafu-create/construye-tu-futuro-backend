@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Términos y Condiciones | Construye tu futuro</title>
+  <style>
+    body{ margin:0; font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial; background:#f2ece4; color:#111827; line-height:1.55; }
+    .wrap{ max-width:900px; margin:0 auto; padding: 28px 16px 60px; }
+    .card{ background:#fff; border:1px solid rgba(0,0,0,.10); border-radius:16px; padding:18px; box-shadow: 0 10px 22px rgba(0,0,0,.06); }
+    h1{ margin:0 0 6px; letter-spacing:-.02em; }
+    .muted{ color:#6b7280; font-size: 13px; margin:0 0 18px; }
+    h2{ margin: 18px 0 8px; font-size: 18px; }
+    p{ margin: 0 0 10px; }
+    ul{ margin: 0 0 10px; padding-left: 18px; }
+    a{ color:inherit; }
+    .top{ display:flex; justify-content:space-between; gap:10px; align-items:center; margin-bottom: 14px; }
+    .btn{ display:inline-block; padding:10px 12px; border-radius:12px; border:1px solid rgba(0,0,0,.12); background:#fff; text-decoration:none; font-weight:800; font-size: 13px; }
+    .langPill{ padding:8px 10px; border-radius:999px; border:1px solid rgba(0,0,0,.12); background:#fff; font-size:12px; font-weight:900; color:#111827; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="top">
+      <a class="btn" href="/">← Volver</a>
+      <div class="langPill" id="langPill">ES</div>
+    </div>
+
+    <!-- ES -->
+    <div class="card" id="esBlock">
+      <h1>Términos y Condiciones</h1>
+      <p class="muted">Construye tu futuro · Última actualización: <span id="dateEs"></span></p>
+
+      <h2>1. Objeto</h2>
+      <p>Estos términos regulan el uso del sitio web “Construye tu futuro” y de los servicios ofrecidos, con finalidad de <b>educación financiera</b>.</p>
+
+      <h2>2. Naturaleza del servicio</h2>
+      <p>Construye tu futuro <b>no</b> es un asesor financiero, <b>no</b> es un broker, <b>no</b> gestiona dinero, <b>no</b> ejecuta operaciones y <b>no</b> ofrece asesoramiento financiero personalizado.</p>
+      <p>El contenido es <b>educativo</b> y de carácter general.</p>
+
+      <h2>3. Simulaciones</h2>
+      <p>Las simulaciones son estimaciones teóricas basadas en supuestos simplificados y <b>no garantizan resultados futuros</b>. Rentabilidades pasadas o simuladas no garantizan rentabilidades futuras.</p>
+
+      <h2>4. Suscripciones</h2>
+      <p>Algunas secciones pueden estar disponibles mediante suscripción. La suscripción da acceso a guías, checklists, recordatorios y contenido informativo.</p>
+      <p>La suscripción <b>no incluye</b> gestión de inversiones ni asesoramiento financiero individual.</p>
+
+      <h2>5. Cancelación</h2>
+      <p>El usuario puede cancelar su suscripción en cualquier momento desde el proveedor de pago (por ejemplo, Stripe). La cancelación evita cargos futuros. No hay reembolsos retroactivos salvo obligación legal.</p>
+
+      <h2>6. Responsabilidad</h2>
+      <p>El usuario es responsable de sus decisiones financieras. Construye tu futuro no se hace responsable de pérdidas, decisiones de inversión o uso del contenido.</p>
+
+      <h2>7. Edad mínima</h2>
+      <p>El servicio está destinado a mayores de <b>18 años</b>.</p>
+
+      <h2>8. Legislación aplicable</h2>
+      <p>Servicio prestado conforme a normativa aplicable en la UE, tomando como referencia Dinamarca.</p>
+
+      <h2>9. Contacto</h2>
+      <p>Email: <b>[PON AQUÍ TU EMAIL]</b></p>
+    </div>
+
+    <!-- EN -->
+    <div class="card" id="enBlock" style="display:none;">
+      <h1>Terms and Conditions</h1>
+      <p class="muted">Build Your Future · Last updated: <span id="dateEn"></span></p>
+
+      <h2>1. Purpose</h2>
+      <p>These Terms govern the use of “Build Your Future” and its services for <b>financial education</b>.</p>
+
+      <h2>2. Nature of the service</h2>
+      <p>Build Your Future is <b>not</b> a financial advisor, <b>not</b> a broker, does <b>not</b> manage money, does <b>not</b> execute trades, and does <b>not</b> provide personalized investment advice.</p>
+      <p>All content is <b>educational</b> and general.</p>
+
+      <h2>3. Simulations</h2>
+      <p>Simulations are theoretical estimates based on simplified assumptions and <b>do not guarantee future results</b>. Past or simulated performance does not guarantee future performance.</p>
+
+      <h2>4. Subscriptions</h2>
+      <p>Some content may require a subscription. Subscriptions provide access to guides, checklists, reminders, and educational content.</p>
+      <p>Subscriptions <b>do not</b> include investment management or personalized advice.</p>
+
+      <h2>5. Cancellation</h2>
+      <p>Users may cancel at any time via the payment provider (e.g., Stripe). Cancellation prevents future charges. No retroactive refunds unless required by law.</p>
+
+      <h2>6. Liability</h2>
+      <p>Users are responsible for their financial decisions. Build Your Future is not liable for losses or decisions based on the content.</p>
+
+      <h2>7. Minimum age</h2>
+      <p>This service is intended for users aged <b>18+</b>.</p>
+
+      <h2>8. Governing law</h2>
+      <p>This service operates under EU applicable law, with reference to Denmark.</p>
+
+      <h2>9. Contact</h2>
+      <p>Email: <b>construyetufuturo.web@gmail.com</b></p>
+    </div>
+  </div>
+
+  <script>
+    const lang = (localStorage.getItem("lang") || "es").toLowerCase();
+    document.getElementById("langPill").textContent = (lang === "en") ? "EN" : "ES";
+
+    const showEn = (lang === "en");
+    document.getElementById("esBlock").style.display = showEn ? "none" : "block";
+    document.getElementById("enBlock").style.display = showEn ? "block" : "none";
+
+    const d = new Date();
+    const dsES = d.toLocaleDateString("es-ES", { year:"numeric", month:"long", day:"numeric" });
+    const dsEN = d.toLocaleDateString("en-GB", { year:"numeric", month:"long", day:"numeric" });
+
+    document.getElementById("dateEs").textContent = dsES;
+    document.getElementById("dateEn").textContent = dsEN;
+  </script>
+</body>
+</html>

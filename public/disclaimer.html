@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Disclaimer | Construye tu futuro</title>
+  <style>
+    body{ margin:0; font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial; background:#f2ece4; color:#111827; line-height:1.55; }
+    .wrap{ max-width:900px; margin:0 auto; padding: 28px 16px 60px; }
+    .card{ background:#fff; border:1px solid rgba(0,0,0,.10); border-radius:16px; padding:18px; box-shadow: 0 10px 22px rgba(0,0,0,.06); }
+    h1{ margin:0 0 6px; letter-spacing:-.02em; }
+    .muted{ color:#6b7280; font-size: 13px; margin:0 0 18px; }
+    h2{ margin: 18px 0 8px; font-size: 18px; }
+    p{ margin: 0 0 10px; }
+    ul{ margin: 0 0 10px; padding-left: 18px; }
+    .top{ display:flex; justify-content:space-between; gap:10px; align-items:center; margin-bottom: 14px; }
+    .btn{ display:inline-block; padding:10px 12px; border-radius:12px; border:1px solid rgba(0,0,0,.12); background:#fff; text-decoration:none; font-weight:800; font-size: 13px; }
+    .langPill{ padding:8px 10px; border-radius:999px; border:1px solid rgba(0,0,0,.12); background:#fff; font-size:12px; font-weight:900; color:#111827; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="top">
+      <a class="btn" href="/">← Volver</a>
+      <div class="langPill" id="langPill">ES</div>
+    </div>
+
+    <!-- ES -->
+    <div class="card" id="esBlock">
+      <h1>Aviso legal / Descargo de responsabilidad</h1>
+      <p class="muted">Construye tu futuro</p>
+
+      <p>El contenido de esta web es <b>exclusivamente educativo</b> e informativo.</p>
+
+      <p>Nada de lo publicado constituye:</p>
+      <ul>
+        <li>asesoramiento financiero</li>
+        <li>asesoramiento de inversión</li>
+        <li>recomendación personalizada</li>
+        <li>oferta para comprar o vender productos financieros</li>
+      </ul>
+
+      <p>Las decisiones de inversión son responsabilidad exclusiva del usuario.</p>
+      <p>Invertir conlleva riesgos y se puede perder dinero.</p>
+    </div>
+
+    <!-- EN -->
+    <div class="card" id="enBlock" style="display:none;">
+      <h1>Financial Disclaimer</h1>
+      <p class="muted">Build Your Future</p>
+
+      <p>This website provides <b>educational</b> and informational content only.</p>
+
+      <p>Nothing on this website constitutes:</p>
+      <ul>
+        <li>financial advice</li>
+        <li>investment advice</li>
+        <li>personalized recommendations</li>
+        <li>an offer to buy or sell financial products</li>
+      </ul>
+
+      <p>Users are solely responsible for their investment decisions.</p>
+      <p>Investing involves risk and you may lose money.</p>
+    </div>
+  </div>
+
+  <script>
+    const lang = (localStorage.getItem("lang") || "es").toLowerCase();
+    document.getElementById("langPill").textContent = (lang === "en") ? "EN" : "ES";
+
+    const showEn = (lang === "en");
+    document.getElementById("esBlock").style.display = showEn ? "none" : "block";
+    document.getElementById("enBlock").style.display = showEn ? "block" : "none";
+  </script>
+</body>
+</html>

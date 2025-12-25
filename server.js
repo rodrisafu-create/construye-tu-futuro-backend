@@ -2,24 +2,34 @@ import express from "express";
 import Stripe from "stripe";
 import { Resend } from "resend";
 import "dotenv/config";
+import pg from "pg";
 
+const { Pool } = pg;
+
+/* ======================================================
+   DATABASE
+====================================================== */
+const db = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  ssl: { rejectUnauthorized: false },
+});
+
+/* ======================================================
+   APP + SDKs
+====================================================== */
 const app = express();
-
-// ✅ Instancias una sola vez
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 const resend = new Resend(process.env.RESEND_API_KEY);
 
-// ✅ URLs
 const FRONTEND =
   process.env.FRONTEND_ORIGIN || "https://construye-tu-futuro.netlify.app";
 
-// ✅ FROM (mejor controlarlo por ENV siempre)
 const RESEND_FROM =
   process.env.RESEND_FROM ||
   "Construye tu futuro <noreply@send.construye-tu-futuro.com>";
 
 /* ======================================================
-   1) STRIPE WEBHOOK — RAW BODY (SIEMPRE PRIMERO)
+   1) STRIPE WEBHOOK (RAW BODY)
 ====================================================== */
 app.post(
   "/webhook",
@@ -30,17 +40,16 @@ app.post(
 
     let event;
     try {
-      if (!endpointSecret) throw new Error("Missing STRIPE_WEBHOOK_SECRET");
       event = stripe.webhooks.constructEvent(req.body, sig, endpointSecret);
     } catch (err) {
       console.error("❌ Webhook signature error:", err.message);
-      return res.status(400).send(`Webhook Error: ${err.message}`);
+      return res.status(400).send("Webhook Error");
     }
 
     try {
-      // ===============================
-      // ✅ 1) ALTA: Checkout completado
-      // ===============================
+      /* =========================================
+         ✅ ALTA: checkout.session.completed
+      ========================================= */
       if (event.type === "checkout.session.completed") {
         const session = event.data.object;
 
@@ -51,15 +60,38 @@ app.post(
 
         const plan = session.metadata?.plan || "starter";
 
-        console.log("✅ checkout.session.completed:", {
-          email,
-          plan,
-          id: session.id,
-          livemode: session.livemode,
-        });
-
         if (email) {
-          const resp = await resend.emails.send({
+          // 1) Crear usuario (si no existe)
+          const userRes = await db.query(
+            `
+            INSERT INTO users (email)
+            VALUES ($1)
+            ON CONFLICT (email)
+            DO UPDATE SET email = EXCLUDED.email
+            RETURNING id
+            `,
+            [email]
+          );
+
+          const userId = userRes.rows[0].id;
+
+          // 2) Crear suscripción (30 días MVP)
+          await db.query(
+            `
+            INSERT INTO subscriptions (
+              user_id,
+              stripe_subscription_id,
+              plan,
+              status,
+              current_period_end
+            )
+            VALUES ($1, $2, $3, $4, NOW() + INTERVAL '30 days')
+            `,
+            [userId, session.subscription, plan, "active"]
+          );
+
+          // 3) Email bienvenida
+          await resend.emails.send({
             from: RESEND_FROM,
             to: email,
             subject: "Bienvenido a Construye tu futuro",
@@ -67,83 +99,78 @@ app.post(
               <h2>Bienvenido 👋</h2>
               <p>Gracias por suscribirte a <b>Construye tu futuro</b>.</p>
               <p>Plan: <b>${plan}</b></p>
-              <p>👉 Accede aquí:
-                <a href="${FRONTEND}/login.html">Entrar</a>
-              </p>
-              <p style="font-size:12px;color:#666;">
-                Si no quieres recibir más emails, ignóralos. (MVP)
+              <p>
+                👉 <a href="${FRONTEND}/login.html">Entrar</a>
               </p>
             `,
           });
 
-          console.log("📨 Resend response (welcome):", resp);
-          console.log("✅ Welcome email enviado a", email);
-        } else {
-          console.log("⚠️ checkout.session.completed sin email (no envío welcome).");
+          console.log("✅ ALTA OK:", email);
         }
       }
 
-      // ==========================================
-      // ✅ 2) BAJA: Suscripción cancelada/eliminada
-      // ==========================================
+      /* =========================================
+         ❌ BAJA: customer.subscription.deleted
+      ========================================= */
       if (event.type === "customer.subscription.deleted") {
         const sub = event.data.object;
 
-        console.log("✅ customer.subscription.deleted:", {
-          id: sub.id,
-          customer: sub.customer,
-          status: sub.status,
-          livemode: sub.livemode,
-        });
+        // Marcar suscripción como cancelada (acceso OFF inmediato)
+        await db.query(
+          `
+          UPDATE subscriptions
+          SET status = 'canceled',
+              current_period_end = NOW()
+          WHERE stripe_subscription_id = $1
+          `,
+          [sub.id]
+        );
 
+        // Recuperar email del cliente
         let email = null;
-
-        // sub.customer suele ser "cus_..."
         if (sub.customer) {
           const customer = await stripe.customers.retrieve(sub.customer);
           email = customer?.email || null;
         }
 
         if (email) {
-          const resp = await resend.emails.send({
+          await resend.emails.send({
             from: RESEND_FROM,
             to: email,
             subject: "Tu suscripción ha sido cancelada",
             html: `
               <h2>Suscripción cancelada</h2>
-              <p>Tu suscripción a <b>Construye tu futuro</b> ha sido cancelada.</p>
-              <p>Si fue un error, puedes volver cuando quieras.</p>
-              <p>👉 Volver a la web: <a href="${FRONTEND}">${FRONTEND}</a></p>
-              <p style="font-size:12px;color:#666;">
-                Si tienes cualquier duda, responde a este email. (MVP)
+              <p>Tu acceso a <b>Construye tu futuro</b> ha sido desactivado.</p>
+              <p>
+                👉 <a href="${FRONTEND}">Volver a la web</a>
               </p>
             `,
           });
 
-          console.log("📨 Resend response (cancel):", resp);
-          console.log("✅ Email de cancelación enviado a", email);
-        } else {
-          console.log("⚠️ customer.subscription.deleted sin email (no envío cancel).");
+          console.log("❌ BAJA OK:", email);
         }
       }
 
       return res.json({ received: true });
     } catch (err) {
-      console.error("❌ Error procesando webhook:", err);
+      console.error("❌ Webhook processing error:", err);
       return res.status(500).send("Webhook handler failed");
     }
   }
 );
 
 /* ======================================================
-   2) RESTO DEL SERVER (JSON, CORS, STATIC)
+   2) MIDDLEWARE NORMAL
 ====================================================== */
 app.use(express.json());
 
-// CORS
 app.use((req, res, next) => {
-  const origin = process.env.FRONTEND_ORIGIN;
-  if (origin) res.setHeader("Access-Control-Allow-Origin", origin);
+  if (process.env.FRONTEND_ORIGIN) {
+    res.setHeader(
+      "Access-Control-Allow-Origin",
+      process.env.FRONTEND_ORIGIN
+    );
+  }
   res.setHeader("Access-Control-Allow-Methods", "GET,POST,OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type");
   if (req.method === "OPTIONS") return res.sendStatus(200);
@@ -152,7 +179,7 @@ app.use((req, res, next) => {
 
 app.use(express.static("public"));
 
-app.get("/", (req, res) => res.send("Backend OK ✅"));
+app.get("/", (_, res) => res.send("Backend OK ✅"));
 
 /* ======================================================
    3) CHECKOUT
@@ -172,11 +199,9 @@ app.post("/create-checkout-session", async (req, res) => {
   try {
     let { plan, currency, email } = req.body;
 
-    plan = String(plan || "").toLowerCase();
-    currency = String(currency || "").toLowerCase();
-    email = String(email || "").trim();
-
-    console.log("BODY:", req.body, "-> normalized:", { plan, currency, email });
+    plan = String(plan).toLowerCase();
+    currency = String(currency).toLowerCase();
+    email = String(email).trim();
 
     if (!PRICE[plan] || !PRICE[plan][currency]) {
       return res.status(400).json({ error: "Plan o moneda inválidos" });
@@ -190,18 +215,21 @@ app.post("/create-checkout-session", async (req, res) => {
       line_items: [{ price: PRICE[plan][currency], quantity: 1 }],
       customer_email: email,
       metadata: { plan, email },
-      success_url: `${FRONTEND}/?success=1&plan=${plan}`,
+      success_url: `${FRONTEND}/?success=1`,
       cancel_url: `${FRONTEND}/?canceled=1`,
     });
 
-    return res.json({ url: session.url });
+    res.json({ url: session.url });
   } catch (err) {
     console.error("STRIPE ERROR:", err);
-    return res.status(500).json({
-      error: err?.raw?.message || err?.message || "Stripe error",
-    });
+    res.status(500).json({ error: "Stripe error" });
   }
 });
 
+/* ======================================================
+   START SERVER
+====================================================== */
 const PORT = process.env.PORT || 4242;
-app.listen(PORT, () => console.log(`Servidor activo en puerto ${PORT}`));
+app.listen(PORT, () =>
+  console.log(`🚀 Backend running on port ${PORT}`)
+);

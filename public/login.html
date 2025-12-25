@@ -2,128 +2,88 @@
 <html lang="es">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Login · Construye tu futuro</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Acceder — Construye tu futuro</title>
   <style>
-    :root{
-      --cream:#f2ece4; --text:#0a0a0a; --muted:#6b7280; --btn:#b08c62; --btnHover:#c59a6c;
-      --ring: rgba(176,140,98,.35); --card:#ffffff; --border: rgba(0,0,0,.08);
-      --shadowSoft: 0 10px 22px rgba(0,0,0,.08); --radius: 18px;
-      --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
-      --sans: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial;
-    }
-    *{box-sizing:border-box}
-    body{ margin:0; font-family:var(--sans); background:var(--cream); color:var(--text); }
-    .wrap{ min-height:100vh; display:flex; align-items:center; justify-content:center; padding:18px; }
-    .card{ width:min(560px, 100%); background:var(--card); border:1px solid var(--border); border-radius:22px;
-      box-shadow: var(--shadowSoft); padding:18px; }
-    h1{ margin:0 0 6px; letter-spacing:-.02em; }
-    p{ margin:0 0 14px; color:#374151; line-height:1.5; }
-    label{ display:block; margin: 10px 0 7px; font-weight:900; font-size:13px; color:#374151; }
-    input, select{
-      width:100%; padding: 11px 12px; border-radius: 14px;
-      border: 1px solid rgba(0,0,0,.14); background:#fff; outline:none; font-size:15px;
-    }
-    input:focus, select:focus{ box-shadow: 0 0 0 4px var(--ring); border-color: rgba(176,140,98,.9); }
-    .row{ display:grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-    .btn{
-      display:inline-flex; align-items:center; justify-content:center;
-      padding: 11px 16px; border-radius: 14px; border: 1px solid rgba(0,0,0,.10);
-      background: var(--btn); color: #1b1208; font-weight:900; cursor:pointer;
-      box-shadow: 0 10px 18px rgba(176,140,98,.25);
-    }
-    .btn:hover{ background: var(--btnHover); }
-    .muted{ margin-top:10px; font-size:12px; color:var(--muted); line-height:1.45; }
-    .top{ display:flex; justify-content:space-between; align-items:center; gap:10px; margin-bottom:12px; }
-    a{ color:inherit; }
+    body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;margin:0;background:#0b1c33;color:#fff;}
+    .wrap{max-width:520px;margin:0 auto;padding:48px 18px;}
+    a{color:#fff;}
+    .card{background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);border-radius:16px;padding:20px;}
+    h1{margin:0 0 10px;font-size:28px;}
+    p{margin:0 0 18px;opacity:.9;line-height:1.45;}
+    label{display:block;margin:0 0 8px;opacity:.9;}
+    input{width:100%;padding:12px 14px;border-radius:12px;border:1px solid rgba(255,255,255,.18);background:rgba(255,255,255,.06);color:#fff;}
+    button{margin-top:12px;width:100%;padding:12px 14px;border-radius:12px;border:0;background:#b9965b;color:#111;font-weight:700;cursor:pointer;}
+    .row{display:flex;justify-content:space-between;gap:12px;margin-top:14px;}
+    .muted{opacity:.75;font-size:13px;}
+    .err{margin-top:12px;color:#ffb3b3;display:none;white-space:pre-wrap;}
   </style>
 </head>
 <body>
   <div class="wrap">
     <div class="card">
-      <div class="top">
-        <div style="font-weight:900;">Construye tu futuro</div>
-        <select id="lang">
-          <option value="es">ES</option>
-          <option value="en">EN</option>
-        </select>
-      </div>
+      <h1>Acceder</h1>
+      <p>Introduce el mismo email con el que pagaste en Stripe.</p>
 
-      <h1 id="t1">Accede a tu área</h1>
-      <p id="t2">Introduce tu email. (MVP: aún no validamos, es solo para empezar.)</p>
+      <form id="loginForm">
+        <label for="email">Email</label>
+        <input id="email" name="email" type="email" autocomplete="email" required placeholder="tu@email.com" />
+        <button type="submit" id="btn">Entrar</button>
+      </form>
 
-      <label id="l1" for="email">Email</label>
-      <input id="email" type="email" placeholder="tu@email.com" />
+      <div id="err" class="err"></div>
 
-      <div style="margin-top:12px; display:flex; gap:10px; flex-wrap:wrap;">
-        <button class="btn" id="btn">Entrar</button>
-        <a href="/index.html" style="align-self:center; font-weight:900; font-size:13px;">← Volver</a>
-      </div>
-
-      <div class="muted" id="t3">
-        Nota: esto es un login básico para el MVP. Luego lo haremos con acceso real (Stripe + usuario).
+      <div class="row muted">
+        <a href="/index.html">← Volver</a>
+        <a href="/terms.html">Términos</a>
       </div>
     </div>
   </div>
 
   <script>
-    const i18n = {
-      es: {
-        t1:"Accede a tu área",
-        t2:"Introduce tu email. (MVP: aún no validamos, es solo para empezar.)",
-        l1:"Email",
-        btn:"Entrar",
-        t3:"Nota: esto es un login básico para el MVP. Luego lo haremos con acceso real (Stripe + usuario)."
-      },
-      en: {
-        t1:"Access your area",
-        t2:"Enter your email. (MVP: not validated yet — just to get started.)",
-        l1:"Email",
-        btn:"Enter",
-        t3:"Note: this is a basic MVP login. Later we’ll do real access (Stripe + user)."
+    const BACKEND = "https://construye-tu-futuro.onrender.com";
+
+    function showError(msg){
+      const el = document.getElementById("err");
+      el.style.display = "block";
+      el.textContent = msg;
+    }
+
+    document.getElementById("loginForm").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      document.getElementById("err").style.display = "none";
+
+      const email = document.getElementById("email").value.trim().toLowerCase();
+      if(!email) return showError("Falta el email.");
+
+      const btn = document.getElementById("btn");
+      btn.disabled = true;
+      btn.textContent = "Comprobando...";
+
+      try {
+        const r = await fetch(`${BACKEND}/auth/login`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email })
+        });
+
+        const data = await r.json().catch(() => ({}));
+
+        if(!r.ok){
+          throw new Error(data?.error || "No se pudo acceder.");
+        }
+
+        localStorage.setItem("ctf_email", email);
+        if (data?.plan) localStorage.setItem("ctf_plan", data.plan);
+        if (data?.current_period_end) localStorage.setItem("ctf_period_end", data.current_period_end);
+
+        window.location.href = "/dashboard.html";
+      } catch (err) {
+        showError(err.message || String(err));
+      } finally {
+        btn.disabled = false;
+        btn.textContent = "Entrar";
       }
-    };
-
-    function getSavedLang(){
-      return localStorage.getItem("lang") || "es";
-    }
-    function setLang(lang){
-      document.documentElement.lang = lang;
-      localStorage.setItem("lang", lang);
-      const d = i18n[lang] || i18n.es;
-      document.getElementById("t1").textContent = d.t1;
-      document.getElementById("t2").textContent = d.t2;
-      document.getElementById("l1").textContent = d.l1;
-      document.getElementById("btn").textContent = d.btn;
-      document.getElementById("t3").textContent = d.t3;
-    }
-
-    const langSel = document.getElementById("lang");
-    const saved = getSavedLang();
-    langSel.value = saved;
-    setLang(saved);
-
-    langSel.addEventListener("change", (e)=> setLang(e.target.value));
-
-    document.getElementById("btn").addEventListener("click", ()=>{
-      const email = (document.getElementById("email").value || "").trim();
-      const API_BASE = "https://construye-tu-futuro.onrender.com";
-
-document.getElementById("btn").addEventListener("click", async ()=>{
-  const email = (document.getElementById("email").value || "").trim();
-  if(!email) return alert("Pon un email");
-
-  const res = await fetch(`${API_BASE}/auth/request-link`, {
-    method:"POST",
-    headers:{ "Content-Type":"application/json" },
-    body: JSON.stringify({ email })
-  });
-
-  const data = await res.json();
-  if(!res.ok) return alert(data.error || "Error enviando enlace");
-
-  alert("Te he enviado un enlace. Revisa tu correo.");
-});
     });
   </script>
 </body>

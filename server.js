@@ -231,5 +231,5 @@ app.post("/create-checkout-session", async (req, res) => {
 ====================================================== */
 const PORT = process.env.PORT || 4242;
 app.listen(PORT, () =>
-  console.log(`🚀 Backend runnin on port ${PORT}`)
+  console.log(`🚀 Backend running on port ${PORT}`)
 );

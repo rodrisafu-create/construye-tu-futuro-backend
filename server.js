@@ -18,8 +18,30 @@ const db = new Pool({
    APP + SDKs
 ====================================================== */
 const app = express();
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
+
+// 🔁 Stripe mode selector: "test" o "live"
+const STRIPE_MODE = (process.env.STRIPE_MODE || "live").toLowerCase();
+
+const STRIPE_SECRET =
+  STRIPE_MODE === "test"
+    ? process.env.STRIPE_SECRET_KEY_TEST
+    : process.env.STRIPE_SECRET_KEY;
+
+const STRIPE_WEBHOOK_SECRET =
+  STRIPE_MODE === "test"
+    ? process.env.STRIPE_WEBHOOK_SECRET_TEST
+    : process.env.STRIPE_WEBHOOK_SECRET;
+
+if (!STRIPE_SECRET) {
+  console.error("❌ Missing Stripe secret key for mode:", STRIPE_MODE);
+}
+if (!STRIPE_WEBHOOK_SECRET) {
+  console.error("❌ Missing Stripe webhook secret for mode:", STRIPE_MODE);
+}
+
+const stripe = new Stripe(STRIPE_SECRET);
 const resend = new Resend(process.env.RESEND_API_KEY);
+
 
 const FRONTEND =
   process.env.FRONTEND_ORIGIN || "https://construye-tu-futuro.netlify.app";

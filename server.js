@@ -13,9 +13,7 @@ const resend = new Resend(process.env.RESEND_API_KEY);
 const FRONTEND =
   process.env.FRONTEND_ORIGIN || "https://construye-tu-futuro.netlify.app";
 
-// ✅ IMPORTANTÍSIMO:
-// Si en Resend configuraste "send.construye-tu-futuro.com", este FROM es válido.
-// Si prefieres usar el dominio raíz (construye-tu-futuro.com), cambia el default aquí o en Render.
+// ✅ FROM (mejor controlarlo por ENV siempre)
 const RESEND_FROM =
   process.env.RESEND_FROM ||
   "Construye tu futuro <noreply@send.construye-tu-futuro.com>";
@@ -40,6 +38,9 @@ app.post(
     }
 
     try {
+      // ===============================
+      // ✅ 1) ALTA: Checkout completado
+      // ===============================
       if (event.type === "checkout.session.completed") {
         const session = event.data.object;
 
@@ -54,6 +55,7 @@ app.post(
           email,
           plan,
           id: session.id,
+          livemode: session.livemode,
         });
 
         if (email) {
@@ -74,12 +76,54 @@ app.post(
             `,
           });
 
-          console.log("📨 Resend response:", resp);
-          console.log("✅ Email enviado a", email);
+          console.log("📨 Resend response (welcome):", resp);
+          console.log("✅ Welcome email enviado a", email);
         } else {
-          console.log(
-            "⚠️ checkout.session.completed sin email (no envío welcome)."
-          );
+          console.log("⚠️ checkout.session.completed sin email (no envío welcome).");
+        }
+      }
+
+      // ==========================================
+      // ✅ 2) BAJA: Suscripción cancelada/eliminada
+      // ==========================================
+      if (event.type === "customer.subscription.deleted") {
+        const sub = event.data.object;
+
+        console.log("✅ customer.subscription.deleted:", {
+          id: sub.id,
+          customer: sub.customer,
+          status: sub.status,
+          livemode: sub.livemode,
+        });
+
+        let email = null;
+
+        // sub.customer suele ser "cus_..."
+        if (sub.customer) {
+          const customer = await stripe.customers.retrieve(sub.customer);
+          email = customer?.email || null;
+        }
+
+        if (email) {
+          const resp = await resend.emails.send({
+            from: RESEND_FROM,
+            to: email,
+            subject: "Tu suscripción ha sido cancelada",
+            html: `
+              <h2>Suscripción cancelada</h2>
+              <p>Tu suscripción a <b>Construye tu futuro</b> ha sido cancelada.</p>
+              <p>Si fue un error, puedes volver cuando quieras.</p>
+              <p>👉 Volver a la web: <a href="${FRONTEND}">${FRONTEND}</a></p>
+              <p style="font-size:12px;color:#666;">
+                Si tienes cualquier duda, responde a este email. (MVP)
+              </p>
+            `,
+          });
+
+          console.log("📨 Resend response (cancel):", resp);
+          console.log("✅ Email de cancelación enviado a", email);
+        } else {
+          console.log("⚠️ customer.subscription.deleted sin email (no envío cancel).");
         }
       }
 
@@ -106,7 +150,6 @@ app.use((req, res, next) => {
   next();
 });
 
-// Static (si lo usas)
 app.use(express.static("public"));
 
 app.get("/", (req, res) => res.send("Backend OK ✅"));
@@ -145,10 +188,8 @@ app.post("/create-checkout-session", async (req, res) => {
     const session = await stripe.checkout.sessions.create({
       mode: "subscription",
       line_items: [{ price: PRICE[plan][currency], quantity: 1 }],
-
       customer_email: email,
       metadata: { plan, email },
-
       success_url: `${FRONTEND}/?success=1&plan=${plan}`,
       cancel_url: `${FRONTEND}/?canceled=1`,
     });

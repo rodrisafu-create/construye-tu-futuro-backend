@@ -33,7 +33,7 @@ const RESEND_FROM =
 ====================================================== */
 function tsFromStripeUnixSeconds(sec) {
   if (!sec) return null;
-  return new Date(sec * 1000); // JS Date
+  return new Date(sec * 1000);
 }
 
 async function upsertUserByEmail(email) {
@@ -47,10 +47,10 @@ async function upsertUserByEmail(email) {
     `,
     [email]
   );
-  return r.rows[0]; // {id, email}
+  return r.rows[0];
 }
 
-// Sin UNIQUE en stripe_subscription_id: hacemos UPDATE; si rowCount=0 => INSERT
+// ✅ Requiere UNIQUE(stripe_subscription_id) en DB
 async function upsertSubscription({
   userId,
   stripeSubscriptionId,
@@ -58,32 +58,25 @@ async function upsertSubscription({
   status,
   currentPeriodEnd, // Date o null
 }) {
-  const updateRes = await db.query(
+  await db.query(
     `
-    UPDATE subscriptions
-    SET plan = $1,
-        status = $2,
-        current_period_end = $3
-    WHERE stripe_subscription_id = $4
+    INSERT INTO subscriptions (
+      user_id,
+      stripe_subscription_id,
+      plan,
+      status,
+      current_period_end
+    )
+    VALUES ($1, $2, $3, $4, $5)
+    ON CONFLICT (stripe_subscription_id)
+    DO UPDATE SET
+      user_id = EXCLUDED.user_id,
+      plan = EXCLUDED.plan,
+      status = EXCLUDED.status,
+      current_period_end = EXCLUDED.current_period_end
     `,
-    [plan, status, currentPeriodEnd, stripeSubscriptionId]
+    [userId, stripeSubscriptionId, plan, status, currentPeriodEnd]
   );
-
-  if (updateRes.rowCount === 0) {
-    await db.query(
-      `
-      INSERT INTO subscriptions (
-        user_id,
-        stripe_subscription_id,
-        plan,
-        status,
-        current_period_end
-      )
-      VALUES ($1, $2, $3, $4, $5)
-      `,
-      [userId, stripeSubscriptionId, plan, status, currentPeriodEnd]
-    );
-  }
 }
 
 async function markSubscriptionCanceledNow(stripeSubscriptionId) {
@@ -120,7 +113,6 @@ app.post(
     try {
       /* =========================================
          ✅ ALTA: checkout.session.completed
-         -> Guardamos usuario + suscripción real
       ========================================= */
       if (event.type === "checkout.session.completed") {
         const session = event.data.object;
@@ -131,7 +123,6 @@ app.post(
           session.metadata?.email;
 
         const plan = session.metadata?.plan || "starter";
-
         const stripeSubscriptionId = session.subscription; // "sub_..."
 
         console.log("✅ checkout.session.completed:", {
@@ -141,14 +132,11 @@ app.post(
         });
 
         if (email && stripeSubscriptionId) {
-          // Traer datos reales de la suscripción (period end y status)
           const sub = await stripe.subscriptions.retrieve(stripeSubscriptionId);
           const currentPeriodEnd = tsFromStripeUnixSeconds(sub.current_period_end);
 
-          // 1) user
           const user = await upsertUserByEmail(email);
 
-          // 2) subscription
           await upsertSubscription({
             userId: user.id,
             stripeSubscriptionId,
@@ -157,7 +145,6 @@ app.post(
             currentPeriodEnd,
           });
 
-          // 3) email welcome
           const resp = await resend.emails.send({
             from: RESEND_FROM,
             to: email,
@@ -181,18 +168,12 @@ app.post(
 
       /* =========================================
          ✅ CAMBIOS: customer.subscription.updated
-         -> Si cancel_at_period_end = true, mantenemos acceso
-            hasta current_period_end
       ========================================= */
       if (event.type === "customer.subscription.updated") {
         const sub = event.data.object;
 
         const stripeSubscriptionId = sub.id;
         const currentPeriodEnd = tsFromStripeUnixSeconds(sub.current_period_end);
-
-        // Importante:
-        // - si status sigue "active" y cancel_at_period_end=true => acceso sigue hasta period_end
-        // - si status pasa a "unpaid", "canceled", etc => lo reflejamos
         const status = sub.status || "active";
 
         console.log("✅ customer.subscription.updated:", {
@@ -202,9 +183,7 @@ app.post(
           currentPeriodEnd,
         });
 
-        // Si no sabemos el user_id aquí, no pasa nada: hacemos UPDATE/INSERT por stripe_subscription_id.
-        // Pero para INSERT necesitamos user_id: si no existe ya en DB, no podemos inventarlo.
-        // Por eso: aquí SOLO actualizamos si existe.
+        // Solo actualizamos lo que ya existe en DB (no inventamos user_id aquí).
         await db.query(
           `
           UPDATE subscriptions
@@ -218,7 +197,6 @@ app.post(
 
       /* =========================================
          ❌ FIN: customer.subscription.deleted
-         -> Se acabó la suscripción. Acceso OFF.
       ========================================= */
       if (event.type === "customer.subscription.deleted") {
         const sub = event.data.object;
@@ -229,10 +207,8 @@ app.post(
           status: sub.status,
         });
 
-        // Off inmediato (lo pediste así)
         await markSubscriptionCanceledNow(stripeSubscriptionId);
 
-        // Email al usuario (si encontramos email)
         let email = null;
         try {
           if (sub.customer) {
@@ -284,10 +260,98 @@ app.use((req, res, next) => {
   next();
 });
 
-// ✅ Health check REAL del backend
 app.get("/health", (_, res) => res.send("Backend OK ✅"));
 
-// Sirve tu carpeta public (tu web)
+function isAccessActiveRow(row) {
+  if (!row) return false;
+
+  const status = String(row.status || "").toLowerCase();
+  const allowedStatus = ["active", "trialing", "past_due"]; // ajusta si quieres
+  if (!allowedStatus.includes(status)) return false;
+
+  const end = row.current_period_end ? new Date(row.current_period_end) : null;
+  if (!end) return false;
+
+  return end.getTime() > Date.now();
+}
+
+// POST /auth/login
+app.post("/auth/login", async (req, res) => {
+  try {
+    const email = String(req.body?.email || "").trim().toLowerCase();
+    if (!email) return res.status(400).json({ error: "Falta email" });
+
+    const r = await db.query(
+      `
+      SELECT s.plan, s.status, s.current_period_end
+      FROM users u
+      JOIN subscriptions s ON s.user_id = u.id
+      WHERE u.email = $1
+      ORDER BY s.current_period_end DESC NULLS LAST
+      LIMIT 1
+      `,
+      [email]
+    );
+
+    const row = r.rows[0];
+    if (!row) return res.status(401).json({ error: "No tienes suscripción activa." });
+
+    if (!isAccessActiveRow(row)) {
+      return res.status(401).json({ error: "Tu suscripción no está activa o ha expirado." });
+    }
+
+    return res.json({
+      ok: true,
+      plan: row.plan,
+      status: row.status,
+      current_period_end: row.current_period_end,
+    });
+  } catch (e) {
+    console.error("AUTH LOGIN ERROR:", e);
+    return res.status(500).json({ error: "Server error" });
+  }
+});
+
+// GET /auth/check?email=...
+app.get("/auth/check", async (req, res) => {
+  try {
+    const email = String(req.query?.email || "").trim().toLowerCase();
+    if (!email) return res.status(400).json({ error: "Falta email" });
+
+    const r = await db.query(
+      `
+      SELECT s.plan, s.status, s.current_period_end
+      FROM users u
+      JOIN subscriptions s ON s.user_id = u.id
+      WHERE u.email = $1
+      ORDER BY s.current_period_end DESC NULLS LAST
+      LIMIT 1
+      `,
+      [email]
+    );
+
+    const row = r.rows[0];
+    if (!row) return res.status(401).json({ ok: false, error: "No tienes suscripción activa." });
+
+    if (!isAccessActiveRow(row)) {
+      return res
+        .status(401)
+        .json({ ok: false, error: "Tu suscripción no está activa o ha expirado." });
+    }
+
+    return res.json({
+      ok: true,
+      plan: row.plan,
+      status: row.status,
+      current_period_end: row.current_period_end,
+    });
+  } catch (e) {
+    console.error("AUTH CHECK ERROR:", e);
+    return res.status(500).json({ ok: false, error: "Server error" });
+  }
+});
+
+// Static
 app.use(express.static("public"));
 
 /* ======================================================

@@ -3,108 +3,87 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Dashboard — Construye tu futuro</title>
+  <title>Acceder — Construye tu futuro</title>
   <style>
     body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;margin:0;background:#0b1c33;color:#fff;}
-    .wrap{max-width:900px;margin:0 auto;padding:32px 18px;}
-    .top{display:flex;align-items:center;justify-content:space-between;gap:12px;}
-    .card{margin-top:18px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);border-radius:16px;padding:18px;}
-    h1{margin:0;font-size:26px;}
-    .pill{display:inline-block;padding:6px 10px;border-radius:999px;background:rgba(255,255,255,.10);border:1px solid rgba(255,255,255,.14);font-size:13px;}
-    button{padding:10px 12px;border-radius:12px;border:0;background:#b9965b;color:#111;font-weight:700;cursor:pointer;}
+    .wrap{max-width:520px;margin:0 auto;padding:48px 18px;}
     a{color:#fff;}
-    .muted{opacity:.8;}
-    .err{color:#ffb3b3;white-space:pre-wrap;}
-    table{width:100%;border-collapse:collapse;margin-top:10px;}
-    td{padding:10px 0;border-bottom:1px solid rgba(255,255,255,.10);}
-    td:first-child{opacity:.85;width:220px;}
+    .card{background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);border-radius:16px;padding:20px;}
+    h1{margin:0 0 10px;font-size:28px;}
+    p{margin:0 0 18px;opacity:.9;line-height:1.45;}
+    label{display:block;margin:0 0 8px;opacity:.9;}
+    input{width:100%;padding:12px 14px;border-radius:12px;border:1px solid rgba(255,255,255,.18);background:rgba(255,255,255,.06);color:#fff;}
+    button{margin-top:12px;width:100%;padding:12px 14px;border-radius:12px;border:0;background:#b9965b;color:#111;font-weight:700;cursor:pointer;}
+    .row{display:flex;justify-content:space-between;gap:12px;margin-top:14px;}
+    .muted{opacity:.75;font-size:13px;}
+    .err{margin-top:12px;color:#ffb3b3;display:none;white-space:pre-wrap;}
   </style>
 </head>
 <body>
   <div class="wrap">
-    <div class="top">
-      <div>
-        <h1>Dashboard</h1>
-        <div class="muted" id="hello"></div>
-      </div>
-      <div style="display:flex;gap:10px;align-items:center;">
-        <span class="pill" id="planPill">Plan: —</span>
-        <button id="logoutBtn">Cerrar sesión</button>
-      </div>
-    </div>
-
-    <div class="card" id="statusCard">
-      <div class="muted">Comprobando acceso…</div>
-    </div>
-
     <div class="card">
-      <h2 style="margin:0 0 6px;font-size:18px;">Accesos</h2>
-      <div class="muted">Aquí irán tus contenidos (simulador / guía / etc.).</div>
-    </div>
+      <h1>Acceder</h1>
+      <p>Introduce el mismo email con el que pagaste en Stripe.</p>
 
-    <div class="muted" style="margin-top:16px;">
-      <a href="/index.html">← Volver a la web</a>
+      <form id="loginForm">
+        <label for="email">Email</label>
+        <input id="email" name="email" type="email" autocomplete="email" required placeholder="tu@email.com" />
+        <button type="submit" id="btn">Entrar</button>
+      </form>
+
+      <div id="err" class="err"></div>
+
+      <div class="row muted">
+        <a href="/">← Volver</a>
+        <a href="/terms.html">Términos</a>
+      </div>
     </div>
   </div>
 
   <script>
     const BACKEND = "https://construye-tu-futuro.onrender.com";
 
-    function fmtDate(iso){
-      if(!iso) return "—";
+    function showError(msg){
+      const el = document.getElementById("err");
+      el.style.display = "block";
+      el.textContent = msg;
+    }
+
+    document.getElementById("loginForm").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      document.getElementById("err").style.display = "none";
+
+      const email = document.getElementById("email").value.trim().toLowerCase();
+      if(!email) return showError("Falta el email.");
+
+      const btn = document.getElementById("btn");
+      btn.disabled = true;
+      btn.textContent = "Comprobando...";
+
       try {
-        const d = new Date(iso);
-        return d.toLocaleString("es-ES", { year:"numeric", month:"2-digit", day:"2-digit", hour:"2-digit", minute:"2-digit" });
-      } catch (_) {
-        return iso;
+        const r = await fetch(`${BACKEND}/auth/login`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email })
+        });
+
+        const data = await r.json().catch(() => ({}));
+
+        if(!r.ok){
+          throw new Error(data?.error || "No se pudo acceder.");
+        }
+
+        localStorage.setItem("ctf_email", email);
+        if (data?.plan) localStorage.setItem("ctf_plan", String(data.plan).toLowerCase());
+        if (data?.current_period_end) localStorage.setItem("ctf_period_end", data.current_period_end);
+
+        window.location.href = "/dashboard.html";
+      } catch (err) {
+        showError(err?.message || String(err));
+      } finally {
+        btn.disabled = false;
+        btn.textContent = "Entrar";
       }
-    }
-
-    async function checkAccess() {
-      const email = (localStorage.getItem("ctf_email") || "").trim().toLowerCase();
-      if(!email) {
-        window.location.href = "/login.html";
-        return;
-      }
-
-      document.getElementById("hello").textContent = `Sesión: ${email}`;
-
-      const r = await fetch(`${BACKEND}/auth/check?email=${encodeURIComponent(email)}`);
-      const data = await r.json().catch(() => ({}));
-
-      if(!r.ok || !data?.ok) {
-        localStorage.removeItem("ctf_email");
-        localStorage.removeItem("ctf_plan");
-        localStorage.removeItem("ctf_period_end");
-        document.getElementById("statusCard").innerHTML = `<div class="err">${data?.error || "No tienes acceso activo."}</div>`;
-        setTimeout(() => window.location.href = "/login.html", 800);
-        return;
-      }
-
-      if (data?.plan) localStorage.setItem("ctf_plan", data.plan);
-      if (data?.current_period_end) localStorage.setItem("ctf_period_end", data.current_period_end);
-
-      document.getElementById("planPill").textContent = `Plan: ${data.plan || "—"}`;
-
-      document.getElementById("statusCard").innerHTML = `
-        <div style="font-weight:700;">Acceso activo ✅</div>
-        <table>
-          <tr><td>Plan</td><td>${data.plan || "—"}</td></tr>
-          <tr><td>Estado</td><td>${data.status || "—"}</td></tr>
-          <tr><td>Acceso hasta</td><td>${fmtDate(data.current_period_end)}</td></tr>
-        </table>
-      `;
-    }
-
-    document.getElementById("logoutBtn").addEventListener("click", () => {
-      localStorage.removeItem("ctf_email");
-      localStorage.removeItem("ctf_plan");
-      localStorage.removeItem("ctf_period_end");
-      window.location.href = "/login.html";
-    });
-
-    checkAccess().catch((e) => {
-      document.getElementById("statusCard").innerHTML = `<div class="err">${e?.message || e}</div>`;
     });
   </script>
 </body>

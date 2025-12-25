@@ -392,12 +392,12 @@ const PRICE_LIVE = {
 
 const PRICE_TEST = {
   starter: {
-    eur: "price_TEST_EUR_STARTER",
-    dkk: "price_TEST_DKK_STARTER",
+    eur: "price_1SiMv8Gi85FmhwHAxEXu7TTm",
+    dkk: "price_1SiMvRGi85FmhwHAC1vxlUBF",
   },
   premium: {
-    eur: "price_TEST_EUR_PREMIUM",
-    dkk: "price_TEST_DKK_PREMIUM",
+    eur: "price_1SiMwFGi85FmhwHAa92oPtl5",
+    dkk: "price_1SiMxBGi85FmhwHA8gnwb8uH",
   },
 };
 

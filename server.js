@@ -380,13 +380,13 @@ app.use(express.static("public"));
    3) CHECKOUT
 ====================================================== */
 const PRICE_LIVE = {
-  starter: {
-    eur: "price_LIVE_EUR_STARTER",
-    dkk: "price_LIVE_DKK_STARTER",
+ starter: {
+    eur: "price_1ShJvPGi85FmhwHAYtS2Nb3C",
+    dkk: "price_1ShJvhGi85FmhwHAHRjSMLLy",
   },
   premium: {
-    eur: "price_LIVE_EUR_PREMIUM",
-    dkk: "price_LIVE_DKK_PREMIUM",
+    eur: "price_1ShJw3Gi85FmhwHA4IjFtDWR",
+    dkk: "price_1ShJwPGi85FmhwHAnLEZAtVN",
   },
 };
 

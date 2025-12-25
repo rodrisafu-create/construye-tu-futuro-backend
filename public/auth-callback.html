@@ -1,0 +1,7 @@
+<!doctype html><meta charset="utf-8">
+<script>
+const token = new URLSearchParams(location.search).get("token");
+if(!token){ location.href="/login.html"; }
+localStorage.setItem("token", token);
+location.href="/dashboard.html";
+</script>

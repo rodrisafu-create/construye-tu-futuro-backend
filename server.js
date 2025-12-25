@@ -379,16 +379,29 @@ app.use(express.static("public"));
 /* ======================================================
    3) CHECKOUT
 ====================================================== */
-const PRICE = {
+const PRICE_LIVE = {
   starter: {
-    eur: "price_1ShJvPGi85FmhwHAYtS2Nb3C",
-    dkk: "price_1ShJvhGi85FmhwHAHRjSMLLy",
+    eur: "price_LIVE_EUR_STARTER",
+    dkk: "price_LIVE_DKK_STARTER",
   },
   premium: {
-    eur: "price_1ShJw3Gi85FmhwHA4IjFtDWR",
-    dkk: "price_1ShJwPGi85FmhwHAnLEZAtVN",
+    eur: "price_LIVE_EUR_PREMIUM",
+    dkk: "price_LIVE_DKK_PREMIUM",
   },
 };
+
+const PRICE_TEST = {
+  starter: {
+    eur: "price_TEST_EUR_STARTER",
+    dkk: "price_TEST_DKK_STARTER",
+  },
+  premium: {
+    eur: "price_TEST_EUR_PREMIUM",
+    dkk: "price_TEST_DKK_PREMIUM",
+  },
+};
+
+const PRICE = STRIPE_MODE === "test" ? PRICE_TEST : PRICE_LIVE;
 
 app.post("/create-checkout-session", async (req, res) => {
   try {

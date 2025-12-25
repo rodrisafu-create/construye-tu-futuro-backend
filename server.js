@@ -29,7 +29,77 @@ const RESEND_FROM =
   "Construye tu futuro <noreply@send.construye-tu-futuro.com>";
 
 /* ======================================================
-   1) STRIPE WEBHOOK (RAW BODY)
+   HELPERS
+====================================================== */
+function tsFromStripeUnixSeconds(sec) {
+  if (!sec) return null;
+  return new Date(sec * 1000); // JS Date
+}
+
+async function upsertUserByEmail(email) {
+  const r = await db.query(
+    `
+    INSERT INTO users (email)
+    VALUES ($1)
+    ON CONFLICT (email)
+    DO UPDATE SET email = EXCLUDED.email
+    RETURNING id, email
+    `,
+    [email]
+  );
+  return r.rows[0]; // {id, email}
+}
+
+// Sin UNIQUE en stripe_subscription_id: hacemos UPDATE; si rowCount=0 => INSERT
+async function upsertSubscription({
+  userId,
+  stripeSubscriptionId,
+  plan,
+  status,
+  currentPeriodEnd, // Date o null
+}) {
+  const updateRes = await db.query(
+    `
+    UPDATE subscriptions
+    SET plan = $1,
+        status = $2,
+        current_period_end = $3
+    WHERE stripe_subscription_id = $4
+    `,
+    [plan, status, currentPeriodEnd, stripeSubscriptionId]
+  );
+
+  if (updateRes.rowCount === 0) {
+    await db.query(
+      `
+      INSERT INTO subscriptions (
+        user_id,
+        stripe_subscription_id,
+        plan,
+        status,
+        current_period_end
+      )
+      VALUES ($1, $2, $3, $4, $5)
+      `,
+      [userId, stripeSubscriptionId, plan, status, currentPeriodEnd]
+    );
+  }
+}
+
+async function markSubscriptionCanceledNow(stripeSubscriptionId) {
+  await db.query(
+    `
+    UPDATE subscriptions
+    SET status = 'canceled',
+        current_period_end = NOW()
+    WHERE stripe_subscription_id = $1
+    `,
+    [stripeSubscriptionId]
+  );
+}
+
+/* ======================================================
+   1) STRIPE WEBHOOK (RAW BODY) — SIEMPRE ANTES DEL JSON
 ====================================================== */
 app.post(
   "/webhook",
@@ -40,15 +110,17 @@ app.post(
 
     let event;
     try {
+      if (!endpointSecret) throw new Error("Missing STRIPE_WEBHOOK_SECRET");
       event = stripe.webhooks.constructEvent(req.body, sig, endpointSecret);
     } catch (err) {
       console.error("❌ Webhook signature error:", err.message);
-      return res.status(400).send("Webhook Error");
+      return res.status(400).send(`Webhook Error: ${err.message}`);
     }
 
     try {
       /* =========================================
          ✅ ALTA: checkout.session.completed
+         -> Guardamos usuario + suscripción real
       ========================================= */
       if (event.type === "checkout.session.completed") {
         const session = event.data.object;
@@ -60,38 +132,33 @@ app.post(
 
         const plan = session.metadata?.plan || "starter";
 
-        if (email) {
-          // 1) Crear usuario (si no existe)
-          const userRes = await db.query(
-            `
-            INSERT INTO users (email)
-            VALUES ($1)
-            ON CONFLICT (email)
-            DO UPDATE SET email = EXCLUDED.email
-            RETURNING id
-            `,
-            [email]
-          );
+        const stripeSubscriptionId = session.subscription; // "sub_..."
 
-          const userId = userRes.rows[0].id;
+        console.log("✅ checkout.session.completed:", {
+          email,
+          plan,
+          stripeSubscriptionId,
+        });
 
-          // 2) Crear suscripción (30 días MVP)
-          await db.query(
-            `
-            INSERT INTO subscriptions (
-              user_id,
-              stripe_subscription_id,
-              plan,
-              status,
-              current_period_end
-            )
-            VALUES ($1, $2, $3, $4, NOW() + INTERVAL '30 days')
-            `,
-            [userId, session.subscription, plan, "active"]
-          );
+        if (email && stripeSubscriptionId) {
+          // Traer datos reales de la suscripción (period end y status)
+          const sub = await stripe.subscriptions.retrieve(stripeSubscriptionId);
+          const currentPeriodEnd = tsFromStripeUnixSeconds(sub.current_period_end);
 
-          // 3) Email bienvenida
-          await resend.emails.send({
+          // 1) user
+          const user = await upsertUserByEmail(email);
+
+          // 2) subscription
+          await upsertSubscription({
+            userId: user.id,
+            stripeSubscriptionId,
+            plan,
+            status: sub.status || "active",
+            currentPeriodEnd,
+          });
+
+          // 3) email welcome
+          const resp = await resend.emails.send({
             from: RESEND_FROM,
             to: email,
             subject: "Bienvenido a Construye tu futuro",
@@ -99,55 +166,99 @@ app.post(
               <h2>Bienvenido 👋</h2>
               <p>Gracias por suscribirte a <b>Construye tu futuro</b>.</p>
               <p>Plan: <b>${plan}</b></p>
-              <p>
-                👉 <a href="${FRONTEND}/login.html">Entrar</a>
+              <p>👉 <a href="${FRONTEND}/login.html">Entrar</a></p>
+              <p style="font-size:12px;color:#666;">
+                Si no quieres recibir más emails, ignóralos. (MVP)
               </p>
             `,
           });
 
-          console.log("✅ ALTA OK:", email);
+          console.log("📨 Resend welcome:", resp?.id || resp);
+        } else {
+          console.log("⚠️ checkout.session.completed sin email o sin subscription id");
         }
       }
 
       /* =========================================
-         ❌ BAJA: customer.subscription.deleted
+         ✅ CAMBIOS: customer.subscription.updated
+         -> Si cancel_at_period_end = true, mantenemos acceso
+            hasta current_period_end
       ========================================= */
-      if (event.type === "customer.subscription.deleted") {
+      if (event.type === "customer.subscription.updated") {
         const sub = event.data.object;
 
-        // Marcar suscripción como cancelada (acceso OFF inmediato)
+        const stripeSubscriptionId = sub.id;
+        const currentPeriodEnd = tsFromStripeUnixSeconds(sub.current_period_end);
+
+        // Importante:
+        // - si status sigue "active" y cancel_at_period_end=true => acceso sigue hasta period_end
+        // - si status pasa a "unpaid", "canceled", etc => lo reflejamos
+        const status = sub.status || "active";
+
+        console.log("✅ customer.subscription.updated:", {
+          stripeSubscriptionId,
+          status,
+          cancel_at_period_end: sub.cancel_at_period_end,
+          currentPeriodEnd,
+        });
+
+        // Si no sabemos el user_id aquí, no pasa nada: hacemos UPDATE/INSERT por stripe_subscription_id.
+        // Pero para INSERT necesitamos user_id: si no existe ya en DB, no podemos inventarlo.
+        // Por eso: aquí SOLO actualizamos si existe.
         await db.query(
           `
           UPDATE subscriptions
-          SET status = 'canceled',
-              current_period_end = NOW()
-          WHERE stripe_subscription_id = $1
+          SET status = $1,
+              current_period_end = $2
+          WHERE stripe_subscription_id = $3
           `,
-          [sub.id]
+          [status, currentPeriodEnd, stripeSubscriptionId]
         );
+      }
 
-        // Recuperar email del cliente
+      /* =========================================
+         ❌ FIN: customer.subscription.deleted
+         -> Se acabó la suscripción. Acceso OFF.
+      ========================================= */
+      if (event.type === "customer.subscription.deleted") {
+        const sub = event.data.object;
+        const stripeSubscriptionId = sub.id;
+
+        console.log("✅ customer.subscription.deleted:", {
+          stripeSubscriptionId,
+          status: sub.status,
+        });
+
+        // Off inmediato (lo pediste así)
+        await markSubscriptionCanceledNow(stripeSubscriptionId);
+
+        // Email al usuario (si encontramos email)
         let email = null;
-        if (sub.customer) {
-          const customer = await stripe.customers.retrieve(sub.customer);
-          email = customer?.email || null;
+        try {
+          if (sub.customer) {
+            const customer = await stripe.customers.retrieve(sub.customer);
+            email = customer?.email || null;
+          }
+        } catch (e) {
+          console.log("⚠️ No pude recuperar customer email:", e?.message);
         }
 
         if (email) {
-          await resend.emails.send({
+          const resp = await resend.emails.send({
             from: RESEND_FROM,
             to: email,
             subject: "Tu suscripción ha sido cancelada",
             html: `
               <h2>Suscripción cancelada</h2>
-              <p>Tu acceso a <b>Construye tu futuro</b> ha sido desactivado.</p>
-              <p>
-                👉 <a href="${FRONTEND}">Volver a la web</a>
+              <p>Tu suscripción a <b>Construye tu futuro</b> ha sido cancelada.</p>
+              <p>Si fue un error, puedes volver cuando quieras.</p>
+              <p>👉 Volver a la web: <a href="${FRONTEND}">${FRONTEND}</a></p>
+              <p style="font-size:12px;color:#666;">
+                Si tienes cualquier duda, responde a este email. (MVP)
               </p>
             `,
           });
-
-          console.log("❌ BAJA OK:", email);
+          console.log("📨 Resend cancel:", resp?.id || resp);
         }
       }
 
@@ -160,26 +271,24 @@ app.post(
 );
 
 /* ======================================================
-   2) MIDDLEWARE NORMAL
+   2) MIDDLEWARE NORMAL (JSON, CORS, STATIC)
 ====================================================== */
 app.use(express.json());
 
 app.use((req, res, next) => {
-  if (process.env.FRONTEND_ORIGIN) {
-    res.setHeader(
-      "Access-Control-Allow-Origin",
-      process.env.FRONTEND_ORIGIN
-    );
-  }
+  const origin = process.env.FRONTEND_ORIGIN;
+  if (origin) res.setHeader("Access-Control-Allow-Origin", origin);
   res.setHeader("Access-Control-Allow-Methods", "GET,POST,OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type");
   if (req.method === "OPTIONS") return res.sendStatus(200);
   next();
 });
 
-app.use(express.static("public"));
+// ✅ Health check REAL del backend
+app.get("/health", (_, res) => res.send("Backend OK ✅"));
 
-app.get("/", (_, res) => res.send("Backend OK ✅"));
+// Sirve tu carpeta public (tu web)
+app.use(express.static("public"));
 
 /* ======================================================
    3) CHECKOUT
@@ -199,9 +308,9 @@ app.post("/create-checkout-session", async (req, res) => {
   try {
     let { plan, currency, email } = req.body;
 
-    plan = String(plan).toLowerCase();
-    currency = String(currency).toLowerCase();
-    email = String(email).trim();
+    plan = String(plan || "").toLowerCase();
+    currency = String(currency || "").toLowerCase();
+    email = String(email || "").trim();
 
     if (!PRICE[plan] || !PRICE[plan][currency]) {
       return res.status(400).json({ error: "Plan o moneda inválidos" });
@@ -215,14 +324,16 @@ app.post("/create-checkout-session", async (req, res) => {
       line_items: [{ price: PRICE[plan][currency], quantity: 1 }],
       customer_email: email,
       metadata: { plan, email },
-      success_url: `${FRONTEND}/?success=1`,
+      success_url: `${FRONTEND}/?success=1&plan=${plan}`,
       cancel_url: `${FRONTEND}/?canceled=1`,
     });
 
-    res.json({ url: session.url });
+    return res.json({ url: session.url });
   } catch (err) {
     console.error("STRIPE ERROR:", err);
-    res.status(500).json({ error: "Stripe error" });
+    return res.status(500).json({
+      error: err?.raw?.message || err?.message || "Stripe error",
+    });
   }
 });
 
@@ -230,6 +341,4 @@ app.post("/create-checkout-session", async (req, res) => {
    START SERVER
 ====================================================== */
 const PORT = process.env.PORT || 4242;
-app.listen(PORT, () =>
-  console.log(`🚀 Backend running on port ${PORT}`)
-);
+app.listen(PORT, () => console.log(`🚀 Backend running on port ${PORT}`));

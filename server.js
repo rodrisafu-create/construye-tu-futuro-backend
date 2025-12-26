@@ -44,8 +44,7 @@ function getPriceId(plan, currency) {
 }
 
 function frontendBase() {
-  // Usa FRONTEND_ORIGIN si lo tienes, si no el netlify
-  return process.env.FRONTEND_ORIGIN || "https://construye-tu-futuro.netlify.app";
+  return process.env.FRONTEND_ORIGIN || "https://construyetufuturo.pages.dev";
 }
 
 /** =========================

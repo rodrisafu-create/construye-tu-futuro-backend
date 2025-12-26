@@ -44,7 +44,7 @@ function getPriceId(plan, currency) {
 }
 
 function frontendBase() {
-  return process.env.FRONTEND_ORIGIN || "https://construyetufuturo.pages.dev";
+  return process.env.FRONTEND_ORIGIN || "https://construye-tu-futuro.com";
 }
 
 /** =========================

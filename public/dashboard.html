@@ -14,32 +14,38 @@
     button{padding:10px 12px;border-radius:12px;border:0;background:#b9965b;color:#111;font-weight:700;cursor:pointer;}
     a{color:#fff;}
     .muted{opacity:.8;}
-    .err{color:#ffb3b3;white-space:pre-wrap;line-height:1.45;}
-    table{width:100%;border-collapse:collapse;margin-top:10px;}
-    td{padding:10px 0;border-bottom:1px solid rgba(255,255,255,.10);vertical-align:top;}
-    td:first-child{opacity:.85;width:220px;}
   </style>
 </head>
 <body>
+<script>
+  const email = localStorage.getItem("ctf_email");
+  const plan  = localStorage.getItem("ctf_plan");
+
+  if (!email || !plan || plan === "free") {
+    window.location.href = "/login.html";
+  }
+</script>
+
   <div class="wrap">
     <div class="top">
       <div>
         <h1>Dashboard</h1>
-        <div class="muted" id="hello"></div>
+        <div class="muted">Sesión: <span id="email"></span></div>
       </div>
       <div style="display:flex;gap:10px;align-items:center;">
-        <span class="pill" id="planPill">Plan: —</span>
+        <span class="pill" id="planPill"></span>
         <button id="logoutBtn">Cerrar sesión</button>
       </div>
     </div>
 
-    <div class="card" id="statusCard">
-      <div class="muted">Comprobando acceso…</div>
+    <div class="card">
+      <strong>Acceso activo ✅</strong>
+      <p class="muted">Tu suscripción está activa.</p>
     </div>
 
     <div class="card">
       <h2 style="margin:0 0 6px;font-size:18px;">Accesos</h2>
-      <div class="muted">Aquí irán tus contenidos (simulador / guía / etc.).</div>
+      <div class="muted">Aquí irá tu contenido premium.</div>
     </div>
 
     <div class="muted" style="margin-top:16px;">
@@ -48,88 +54,12 @@
   </div>
 
   <script>
-    const BACKEND = "https://construye-tu-futuro.onrender.com";
-
-    function fmtDate(iso){
-      if(!iso) return "—";
-      try {
-        const d = new Date(iso);
-        return d.toLocaleString("es-ES", {
-          year:"numeric", month:"2-digit", day:"2-digit",
-          hour:"2-digit", minute:"2-digit"
-        });
-      } catch (_) {
-        return iso;
-      }
-    }
-
-    function clearSession(){
-      localStorage.removeItem("ctf_email");
-      localStorage.removeItem("ctf_plan");
-      localStorage.removeItem("ctf_period_end");
-    }
-
-    async function checkAccess() {
-      const email = (localStorage.getItem("ctf_email") || "").trim().toLowerCase();
-      if(!email){
-        window.location.href = "/login.html";
-        return;
-      }
-
-      document.getElementById("hello").textContent = `Sesión: ${email}`;
-
-      // UI rápida con lo que ya hay guardado (opcional pero agradable)
-      const cachedPlan = (localStorage.getItem("ctf_plan") || "").toLowerCase();
-      if (cachedPlan) document.getElementById("planPill").textContent = `Plan: ${cachedPlan}`;
-
-      let r, data;
-      try {
-        r = await fetch(`${BACKEND}/auth/check?email=${encodeURIComponent(email)}`);
-        data = await r.json().catch(() => ({}));
-      } catch (e) {
-        // Error de red/back caído: NO borres sesión, solo avisa.
-        document.getElementById("statusCard").innerHTML = `
-          <div class="err">
-            No pude contactar con el servidor ahora mismo.<br>
-            Reintenta en unos segundos o revisa el backend.<br><br>
-            Detalle: ${e?.message || e}
-          </div>
-        `;
-        return;
-      }
-
-      if(!r.ok || !data?.ok){
-        // Aquí sí: no hay acceso real (suscripción no activa/expirada)
-        clearSession();
-        document.getElementById("statusCard").innerHTML = `<div class="err">${data?.error || "No tienes acceso activo."}</div>`;
-        setTimeout(() => window.location.href = "/login.html", 800);
-        return;
-      }
-
-      // Guardar cache
-      if (data?.plan) localStorage.setItem("ctf_plan", String(data.plan).toLowerCase());
-      if (data?.current_period_end) localStorage.setItem("ctf_period_end", data.current_period_end);
-
-      const plan = (data.plan || "—");
-      document.getElementById("planPill").textContent = `Plan: ${String(plan).toLowerCase()}`;
-
-      document.getElementById("statusCard").innerHTML = `
-        <div style="font-weight:700;">Acceso activo ✅</div>
-        <table>
-          <tr><td>Plan</td><td>${plan}</td></tr>
-          <tr><td>Estado</td><td>${data.status || "—"}</td></tr>
-          <tr><td>Acceso hasta</td><td>${fmtDate(data.current_period_end)}</td></tr>
-        </table>
-      `;
-    }
+    document.getElementById("email").textContent = email;
+    document.getElementById("planPill").textContent = `Plan: ${plan}`;
 
     document.getElementById("logoutBtn").addEventListener("click", () => {
-      clearSession();
+      localStorage.clear();
       window.location.href = "/login.html";
-    });
-
-    checkAccess().catch((e) => {
-      document.getElementById("statusCard").innerHTML = `<div class="err">${e?.message || e}</div>`;
     });
   </script>
 </body>

@@ -19,7 +19,9 @@ const db = new Pool({
 ====================================================== */
 const app = express();
 
-// 🔁 Stripe mode selector: "test" o "live"
+/* ======================================================
+   STRIPE CONFIG
+====================================================== */
 const STRIPE_MODE = (process.env.STRIPE_MODE || "live").toLowerCase();
 
 const STRIPE_SECRET =
@@ -33,10 +35,10 @@ const STRIPE_WEBHOOK_SECRET =
     : process.env.STRIPE_WEBHOOK_SECRET;
 
 if (!STRIPE_SECRET) {
-  console.error("❌ Missing Stripe secret key for mode:", STRIPE_MODE);
+  console.error("❌ Missing Stripe secret key");
 }
 if (!STRIPE_WEBHOOK_SECRET) {
-  console.error("❌ Missing Stripe webhook secret for mode:", STRIPE_MODE);
+  console.error("❌ Missing Stripe webhook secret");
 }
 
 const stripe = new Stripe(STRIPE_SECRET);
@@ -52,7 +54,7 @@ const RESEND_FROM =
 /* ======================================================
    HELPERS
 ====================================================== */
-function tsFromStripeUnixSeconds(sec) {
+function tsFromStripe(sec) {
   if (!sec) return null;
   return new Date(sec * 1000);
 }
@@ -71,13 +73,12 @@ async function upsertUserByEmail(email) {
   return r.rows[0];
 }
 
-// ✅ Requiere UNIQUE(stripe_subscription_id) en DB
 async function upsertSubscription({
   userId,
   stripeSubscriptionId,
   plan,
   status,
-  currentPeriodEnd, // Date o null
+  currentPeriodEnd,
 }) {
   await db.query(
     `
@@ -88,7 +89,7 @@ async function upsertSubscription({
       status,
       current_period_end
     )
-    VALUES ($1, $2, $3, $4, $5)
+    VALUES ($1,$2,$3,$4,$5)
     ON CONFLICT (stripe_subscription_id)
     DO UPDATE SET
       user_id = EXCLUDED.user_id,
@@ -100,7 +101,7 @@ async function upsertSubscription({
   );
 }
 
-async function markSubscriptionCanceledNow(stripeSubscriptionId) {
+async function cancelSubscriptionNow(stripeSubscriptionId) {
   await db.query(
     `
     UPDATE subscriptions
@@ -111,6 +112,10 @@ async function markSubscriptionCanceledNow(stripeSubscriptionId) {
     [stripeSubscriptionId]
   );
 }
+
+/* ======================================================
+   WEBHOOK (RAW BODY)
+====================================================== */
 app.post(
   "/webhook",
   express.raw({ type: "application/json" }),
@@ -126,76 +131,77 @@ app.post(
       );
     } catch (err) {
       console.error("❌ Webhook signature error:", err.message);
-      return res.status(400).send(`Webhook Error: ${err.message}`);
+      return res.status(400).send("Webhook signature error");
     }
 
     try {
-      // =========================
-      // checkout.session.completed
-      // =========================
+      /* ===============================
+         checkout.session.completed
+      =============================== */
       if (event.type === "checkout.session.completed") {
         const session = event.data.object;
 
-       const email =
-        session.customer_details?.email ||
-        session.customer_email ||
-        session.metadata?.email;
+        const email =
+          session.customer_email ||
+          session.customer_details?.email ||
+          session.metadata?.email;
 
         const plan = session.metadata?.plan || "starter";
-        const stripeSubscriptionId = session.subscription;
+        const subscriptionId = session.subscription;
 
-        if (!email || !stripeSubscriptionId) {
+        if (!email || !subscriptionId) {
           console.warn("⚠️ Missing email or subscription id");
           return res.json({ received: true });
         }
 
-        const sub = await stripe.subscriptions.retrieve(stripeSubscriptionId);
-
+        const sub = await stripe.subscriptions.retrieve(subscriptionId);
         const user = await upsertUserByEmail(email);
 
         await upsertSubscription({
           userId: user.id,
-          stripeSubscriptionId,
+          stripeSubscriptionId: subscriptionId,
           plan,
           status: sub.status,
-          currentPeriodEnd: tsFromStripeUnixSeconds(sub.current_period_end),
+          currentPeriodEnd: tsFromStripe(sub.current_period_end),
         });
 
-        // ⛔️ NUNCA rompas el webhook por un email
+        // Email de bienvenida (no rompe webhook)
         try {
           await resend.emails.send({
             from: RESEND_FROM,
             to: email,
             subject: "Bienvenido a Construye tu futuro",
-            html: `<h2>Bienvenido 👋</h2><p>Plan: ${plan}</p>`,
+            html: `<h2>Bienvenido 👋</h2><p>Plan: <b>${plan}</b></p>`,
           });
-        } catch (mailErr) {
-          console.error("❌ Email error:", mailErr);
+        } catch (e) {
+          console.error("❌ Email error:", e);
         }
       }
 
-      // =========================
-      // customer.subscription.updated
-      // =========================
+      /* ===============================
+         subscription updated
+      =============================== */
       if (event.type === "customer.subscription.updated") {
         const sub = event.data.object;
         await db.query(
-          `UPDATE subscriptions
-           SET status=$1, current_period_end=$2
-           WHERE stripe_subscription_id=$3`,
+          `
+          UPDATE subscriptions
+          SET status=$1, current_period_end=$2
+          WHERE stripe_subscription_id=$3
+          `,
           [
             sub.status,
-            tsFromStripeUnixSeconds(sub.current_period_end),
+            tsFromStripe(sub.current_period_end),
             sub.id,
           ]
         );
       }
 
-      // =========================
-      // customer.subscription.deleted
-      // =========================
+      /* ===============================
+         subscription deleted
+      =============================== */
       if (event.type === "customer.subscription.deleted") {
-        await markSubscriptionCanceledNow(event.data.object.id);
+        await cancelSubscriptionNow(event.data.object.id);
       }
 
       return res.json({ received: true });
@@ -205,8 +211,9 @@ app.post(
     }
   }
 );
+
 /* ======================================================
-   2) MIDDLEWARE NORMAL (JSON, CORS, STATIC)
+   NORMAL MIDDLEWARE
 ====================================================== */
 app.use(express.json());
 
@@ -221,99 +228,45 @@ app.use((req, res, next) => {
 
 app.get("/health", (_, res) => res.send("Backend OK ✅"));
 
-function isAccessActiveRow(row) {
+/* ======================================================
+   ACCESS CHECK
+====================================================== */
+function isActive(row) {
   if (!row) return false;
-
-  const status = String(row.status || "").toLowerCase();
-  const allowedStatus = ["active", "trialing", "past_due"];
-  if (!allowedStatus.includes(status)) return false;
-
-  const end = row.current_period_end ? new Date(row.current_period_end) : null;
-  if (!end) return false;
-
-  return end.getTime() > Date.now();
+  if (!["active", "trialing", "past_due"].includes(row.status)) return false;
+  if (!row.current_period_end) return false;
+  return new Date(row.current_period_end).getTime() > Date.now();
 }
 
 /* ======================================================
    AUTH
 ====================================================== */
 app.post("/auth/login", async (req, res) => {
-  try {
-    const email = String(req.body?.email || "").trim().toLowerCase();
-    if (!email) return res.status(400).json({ error: "Falta email" });
+  const email = String(req.body?.email || "").toLowerCase().trim();
+  if (!email) return res.status(400).json({ error: "Falta email" });
 
-    const r = await db.query(
-      `
-      SELECT s.plan, s.status, s.current_period_end
-      FROM users u
-      JOIN subscriptions s ON s.user_id = u.id
-      WHERE u.email = $1
-      ORDER BY s.current_period_end DESC NULLS LAST
-      LIMIT 1
-      `,
-      [email]
-    );
+  const r = await db.query(
+    `
+    SELECT s.plan, s.status, s.current_period_end
+    FROM users u
+    JOIN subscriptions s ON s.user_id = u.id
+    WHERE u.email = $1
+    ORDER BY s.current_period_end DESC
+    LIMIT 1
+    `,
+    [email]
+  );
 
-    const row = r.rows[0];
-    if (!row) return res.status(401).json({ error: "No tienes suscripción activa." });
-
-    if (!isAccessActiveRow(row)) {
-      return res.status(401).json({ error: "Tu suscripción no está activa o ha expirado." });
-    }
-
-    return res.json({
-      ok: true,
-      plan: row.plan,
-      status: row.status,
-      current_period_end: row.current_period_end,
-    });
-  } catch (e) {
-    console.error("AUTH LOGIN ERROR:", e);
-    return res.status(500).json({ error: "Server error" });
+  const row = r.rows[0];
+  if (!isActive(row)) {
+    return res.status(401).json({ error: "Suscripción no activa" });
   }
+
+  res.json({ ok: true, ...row });
 });
-
-app.get("/auth/check", async (req, res) => {
-  try {
-    const email = String(req.query?.email || "").trim().toLowerCase();
-    if (!email) return res.status(400).json({ error: "Falta email" });
-
-    const r = await db.query(
-      `
-      SELECT s.plan, s.status, s.current_period_end
-      FROM users u
-      JOIN subscriptions s ON s.user_id = u.id
-      WHERE u.email = $1
-      ORDER BY s.current_period_end DESC NULLS LAST
-      LIMIT 1
-      `,
-      [email]
-    );
-
-    const row = r.rows[0];
-    if (!row) return res.status(401).json({ ok: false, error: "No tienes suscripción activa." });
-
-    if (!isAccessActiveRow(row)) {
-      return res.status(401).json({ ok: false, error: "Tu suscripción no está activa o ha expirado." });
-    }
-
-    return res.json({
-      ok: true,
-      plan: row.plan,
-      status: row.status,
-      current_period_end: row.current_period_end,
-    });
-  } catch (e) {
-    console.error("AUTH CHECK ERROR:", e);
-    return res.status(500).json({ ok: false, error: "Server error" });
-  }
-});
-
-// Static
-app.use(express.static("public"));
 
 /* ======================================================
-   3) CHECKOUT
+   STRIPE PRICES
 ====================================================== */
 const PRICE_LIVE = {
   starter: {
@@ -339,37 +292,58 @@ const PRICE_TEST = {
 
 const PRICE = STRIPE_MODE === "test" ? PRICE_TEST : PRICE_LIVE;
 
+/* ======================================================
+   CREATE CHECKOUT SESSION (🔥 ARREGLADO)
+====================================================== */
 app.post("/create-checkout-session", async (req, res) => {
   try {
-    let { plan, currency } = req.body;
+    let { plan, currency, email } = req.body;
 
     plan = String(plan || "").toLowerCase();
     currency = String(currency || "").toLowerCase();
+    email = String(email || "").trim().toLowerCase();
 
     if (!PRICE[plan] || !PRICE[plan][currency]) {
       return res.status(400).json({ error: "Plan o moneda inválidos" });
+    }
+    if (!email) {
+      return res.status(400).json({ error: "Falta email" });
     }
 
     const session = await stripe.checkout.sessions.create({
       mode: "subscription",
       line_items: [{ price: PRICE[plan][currency], quantity: 1 }],
-      customer_creation: "always",
-      metadata: { plan },
+
+      // ✅ CORRECTO para subscriptions
+      customer_email: email,
+
+      metadata: { plan, email },
+      subscription_data: {
+        metadata: { plan, email },
+      },
+
       success_url: `${FRONTEND}/?success=1&plan=${plan}`,
       cancel_url: `${FRONTEND}/?canceled=1`,
     });
 
-    return res.json({ url: session.url });
+    res.json({ url: session.url });
   } catch (err) {
     console.error("STRIPE ERROR:", err);
-    return res.status(500).json({
+    res.status(500).json({
       error: err?.raw?.message || err?.message || "Stripe error",
     });
   }
 });
 
 /* ======================================================
-   START SERVER
+   STATIC
+====================================================== */
+app.use(express.static("public"));
+
+/* ======================================================
+   START
 ====================================================== */
 const PORT = process.env.PORT || 4242;
-app.listen(PORT, () => console.log(`🚀 Backend running on port ${PORT}`));
+app.listen(PORT, () =>
+  console.log(`🚀 Backend running on port ${PORT}`)
+);

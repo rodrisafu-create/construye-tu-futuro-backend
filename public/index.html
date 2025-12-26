@@ -1402,7 +1402,7 @@ const PORTFOLIOS = {
         cta_sim: "Simulér nu",
         hero_pill: "⏳ 18–30 år · Lidt kapital · Meget tid",
         hero_h1: "Hvis du ikke har mange penge, er din fordel at starte tidligt.",
-        hero_p: "Mange investerer ikke, fordi de tror “700kr om måneden gør ingen forskel”. Virkeligheden: med <b>tid</b> kan 700kr blive til meget. Det ser du tydeligt i simuleringen.",
+        hero_p: "Mange investerer ikke, fordi de tror “€100 om måneden gør ingen forskel”. Virkeligheden: med <b>tid</b> kan €100 blive til meget. Det ser du tydeligt i simuleringen.",
         hero_btn: "Prøv simulatoren",
         hero_note: "Finansiel læring. Vi rører ikke dine penge. Du investerer via din egen broker.",
         what_title: "Hvad vi gør (uden jargon)",
@@ -1500,32 +1500,45 @@ const PORTFOLIOS = {
     let currentLang = "es";
 
 function getPlan(){
-  // plan real guardado al hacer login/dashboard
-  return (localStorage.getItem("ctf_plan") || "free").toLowerCase();
+  const p = (localStorage.getItem("ctf_plan") || "free").toLowerCase();
+  if (p === "starter" || p === "premium" || p === "free") return p;
+  return "free";
 }
 
 // ✅ pago real: Stripe
-async function buyPlan(plan) {
+async function buyPlan(plan){
   const API_BASE = "https://construye-tu-futuro.onrender.com";
 
-  const currency = currentLang === "da" ? "dkk" : "eur";
+  // Stripe espera currency en minúsculas porque tu backend hace .toLowerCase()
+  const currency = (currentLang === "da") ? "dkk" : "eur";
 
-  try {
+  // email: debe venir del login / dashboard (guardado antes)
+  const email = (localStorage.getItem("ctf_email") || "").trim().toLowerCase();
+  if (!email) {
+    alert("Falta email. Entra en tu cuenta primero.");
+    window.location.href = "/login.html";
+    return;
+  }
+
+  try{
     const res = await fetch(`${API_BASE}/create-checkout-session`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ plan, currency }),
+      headers: {"Content-Type":"application/json"},
+      body: JSON.stringify({ plan, currency, email })
     });
 
-    const data = await res.json().catch(() => ({}));
+    const data = await res.json().catch(()=> ({}));
 
-    if (!res.ok) {
+    if(!res.ok){
       alert(data.error || "Error creando sesión de Stripe");
       return;
     }
 
+    // guardamos email para después
+    localStorage.setItem("ctf_email", email);
+
     window.location.href = data.url;
-  } catch (e) {
+  }catch(e){
     console.error(e);
     alert("Error de red. Mira consola y logs del backend.");
   }
@@ -1695,6 +1708,8 @@ function fillAgeSelect(selectEl, min, max, selected){
       });
 
       simulate();
+      updateLocks();
+      updateSnowball();
     }
 
     window.setLang = (lang, fromOverlay=false) => {

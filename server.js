@@ -49,6 +49,182 @@ function frontendBase() {
 }
 
 /** =========================
+ *  EMAIL TEMPLATES
+ *  ========================= */
+
+function esc(s) {
+  return String(s || "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
+
+function planLabel(plan) {
+  const p = String(plan || "").toLowerCase();
+  if (p === "starter") return "Starter";
+  if (p === "premium") return "Premium";
+  return "Free";
+}
+
+function emailWrapper({ title, preheader, contentHtml, footerHtml }) {
+  // Email HTML "safe" para clientes de correo (sin CSS raro)
+  return `
+  <!doctype html>
+  <html>
+    <head>
+      <meta charset="utf-8" />
+      <meta name="viewport" content="width=device-width,initial-scale=1" />
+      <title>${esc(title)}</title>
+    </head>
+    <body style="margin:0;padding:0;background:#0b1c33;">
+      <div style="display:none;max-height:0;overflow:hidden;opacity:0;color:transparent;">
+        ${esc(preheader || "")}
+      </div>
+
+      <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background:#0b1c33;padding:28px 0;">
+        <tr>
+          <td align="center">
+            <table role="presentation" width="640" cellspacing="0" cellpadding="0" border="0" style="width:640px;max-width:92vw;">
+              <tr>
+                <td style="padding:18px 6px;color:#ffffff;font-family:Arial,Helvetica,sans-serif;">
+                  <div style="font-size:14px;opacity:.9;">Construye tu futuro</div>
+                  <div style="font-size:26px;font-weight:800;line-height:1.15;margin-top:8px;">
+                    ${esc(title)}
+                  </div>
+                </td>
+              </tr>
+
+              <tr>
+                <td style="padding:0 6px;">
+                  <div style="background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.14);border-radius:16px;padding:18px;color:#ffffff;font-family:Arial,Helvetica,sans-serif;">
+                    ${contentHtml}
+                  </div>
+                </td>
+              </tr>
+
+              <tr>
+                <td style="padding:14px 6px 0;color:#ffffff;font-family:Arial,Helvetica,sans-serif;font-size:12px;opacity:.75;line-height:1.4;">
+                  ${footerHtml || ""}
+                  <div style="margin-top:10px;">
+                    Si no reconoces este correo, ignóralo.  
+                    <br/>
+                    <span style="opacity:.9;">Modo Stripe: ${esc(STRIPE_MODE.toUpperCase())}</span>
+                  </div>
+                </td>
+              </tr>
+
+            </table>
+          </td>
+        </tr>
+      </table>
+    </body>
+  </html>
+  `.trim();
+}
+
+function welcomeEmailHtml({ email, plan }) {
+  const base = frontendBase();
+  const planNice = planLabel(plan);
+
+  const contentHtml = `
+    <div style="font-size:15px;line-height:1.55;opacity:.95;">
+      <p style="margin:0 0 14px;">
+        ¡Bienvenido${email ? `, <b>${esc(email)}</b>` : ""}! ✅
+      </p>
+
+      <p style="margin:0 0 14px;">
+        Tu suscripción <b>${esc(planNice)}</b> está activa y ya puedes entrar al dashboard.
+      </p>
+
+      <div style="margin:18px 0 10px;">
+        <a href="${esc(base + "/login.html")}"
+          style="display:inline-block;background:#b9965b;color:#111;text-decoration:none;font-weight:800;
+                 padding:12px 16px;border-radius:12px;">
+          Entrar al dashboard
+        </a>
+      </div>
+
+      <div style="margin-top:14px;font-size:13px;opacity:.9;">
+        Consejo: usa <b>el mismo email</b> con el que pagaste en Stripe.
+      </div>
+
+      <hr style="border:none;border-top:1px solid rgba(255,255,255,.14);margin:16px 0;" />
+
+      <div style="font-size:13px;opacity:.9;">
+        <div style="font-weight:800;margin-bottom:8px;">Links útiles</div>
+        <ul style="padding-left:18px;margin:0;">
+          <li><a href="${esc(base)}" style="color:#fff;">Volver a la web</a></li>
+          <li><a href="${esc(base + "/terms.html")}" style="color:#fff;">Términos</a></li>
+        </ul>
+      </div>
+    </div>
+  `;
+
+  const footerHtml = `
+    <div>¿Necesitas ayuda? Responde a este correo y te ayudamos.</div>
+  `;
+
+  return emailWrapper({
+    title: "Tu acceso ya está activo",
+    preheader: "Tu suscripción se ha activado. Entra al dashboard con tu email.",
+    contentHtml,
+    footerHtml,
+  });
+}
+
+function cancelEmailHtml({ email }) {
+  const base = frontendBase();
+
+  const contentHtml = `
+    <div style="font-size:15px;line-height:1.55;opacity:.95;">
+      <p style="margin:0 0 14px;">
+        Hola${email ? `, <b>${esc(email)}</b>` : ""}.
+      </p>
+
+      <p style="margin:0 0 14px;">
+        Tu suscripción ha sido cancelada y tu acceso premium se ha desactivado.
+      </p>
+
+      <div style="margin:18px 0 10px;">
+        <a href="${esc(base + "/#precios")}"
+          style="display:inline-block;background:#b9965b;color:#111;text-decoration:none;font-weight:800;
+                 padding:12px 16px;border-radius:12px;">
+          Volver a suscribirme
+        </a>
+      </div>
+
+      <div style="margin-top:14px;font-size:13px;opacity:.9;">
+        Si fue un error o necesitas ayuda, contesta a este correo.
+      </div>
+
+      <hr style="border:none;border-top:1px solid rgba(255,255,255,.14);margin:16px 0;" />
+
+      <div style="font-size:13px;opacity:.9;">
+        <div style="font-weight:800;margin-bottom:8px;">Links</div>
+        <ul style="padding-left:18px;margin:0;">
+          <li><a href="${esc(base)}" style="color:#fff;">Web</a></li>
+          <li><a href="${esc(base + "/terms.html")}" style="color:#fff;">Términos</a></li>
+          <li><a href="${esc(base + "/login.html")}" style="color:#fff;">Login</a></li>
+        </ul>
+      </div>
+    </div>
+  `;
+
+  const footerHtml = `
+    <div>Gracias por haber estado con nosotros.</div>
+  `;
+
+  return emailWrapper({
+    title: "Suscripción cancelada",
+    preheader: "Tu suscripción ha sido cancelada. Puedes volver cuando quieras.",
+    contentHtml,
+    footerHtml,
+  });
+}
+
+/** =========================
  *  CORS
  *  ========================= */
 app.use(
@@ -157,11 +333,7 @@ app.post("/stripe-webhook", express.raw({ type: "application/json" }), async (re
     if (event.type === "checkout.session.completed") {
       const session = event.data.object;
 
-      const email =
-        session?.customer_details?.email ||
-        session?.customer_email ||
-        null;
-
+      const email = session?.customer_details?.email || session?.customer_email || null;
       const plan = session?.metadata?.plan || "free";
 
       await upsertUser({
@@ -171,27 +343,19 @@ app.post("/stripe-webhook", express.raw({ type: "application/json" }), async (re
         subscriptionId: session.subscription || null,
       });
 
-      // ✅ Email gracias por suscribirte (no bloquea el webhook si falta config)
+      // ✅ Email bienvenida
       if (resend && resendFrom && email) {
         try {
           await resend.emails.send({
             from: resendFrom,
             to: email,
-            subject: "Bienvenido a Construye tu futuro",
-            html: `
-              <div style="font-family:Arial,sans-serif;line-height:1.5">
-                <h2>¡Gracias por suscribirte!</h2>
-                <p>Tu plan: <b>${plan}</b></p>
-                <p>Ya puedes acceder a tu contenido premium.</p>
-                <p style="color:#666;font-size:12px">Modo Stripe: ${STRIPE_MODE.toUpperCase()}</p>
-              </div>
-            `,
+            subject: "✅ Tu acceso ya está activo — Construye tu futuro",
+            html: welcomeEmailHtml({ email, plan }),
           });
         } catch (e) {
           console.error("RESEND send failed:", e?.message || e);
         }
       } else {
-        // Esto te ayuda a ver por qué no sale el email
         if (!resend) console.error("RESEND disabled: missing RESEND_API_KEY");
         if (!resendFrom) console.error("RESEND disabled: missing RESEND_FROM");
         if (!email) console.error("No email found in checkout.session.completed");
@@ -253,13 +417,14 @@ app.post("/stripe-webhook", express.raw({ type: "application/json" }), async (re
         subscriptionId: null,
       });
 
+      // ✅ Email cancelación
       if (resend && resendFrom && email) {
         try {
           await resend.emails.send({
             from: resendFrom,
             to: email,
-            subject: "Tu suscripción ha sido cancelada",
-            html: `<p>Tu suscripción ha sido cancelada. Si fue un error, puedes volver a suscribirte cuando quieras.</p>`,
+            subject: "Tu suscripción ha sido cancelada — Construye tu futuro",
+            html: cancelEmailHtml({ email }),
           });
         } catch (e) {
           console.error("RESEND cancel email failed:", e?.message || e);

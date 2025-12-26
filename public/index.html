@@ -1499,33 +1499,35 @@ const PORTFOLIOS = {
 
     let currentLang = "es";
 
- function getPlan(){
-  return localStorage.getItem("plan") || "free";
+function getPlan(){
+  // plan real guardado al hacer login/dashboard
+  return (localStorage.getItem("ctf_plan") || "free").toLowerCase();
 }
 
 // ✅ pago real: Stripe
-async function buyPlan(plan){
-  const currency = (currentLang === "da") ? "DKK" : "EUR";
-
-  try{
+async function buyPlan(plan) {
   const API_BASE = "https://construye-tu-futuro.onrender.com";
-  const res = await fetch(`${API_BASE}/create-checkout-session`, {
-  method: "POST",
-  headers: {"Content-Type":"application/json"},
-  body: JSON.stringify({ plan, currency })
-});
 
-    const data = await res.json();
+  const currency = currentLang === "da" ? "dkk" : "eur";
 
-    if(!res.ok){
+  try {
+    const res = await fetch(`${API_BASE}/create-checkout-session`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ plan, currency }),
+    });
+
+    const data = await res.json().catch(() => ({}));
+
+    if (!res.ok) {
       alert(data.error || "Error creando sesión de Stripe");
       return;
     }
 
     window.location.href = data.url;
-  }catch(e){
+  } catch (e) {
     console.error(e);
-    alert("Error de red. Mira consola y terminal.");
+    alert("Error de red. Mira consola y logs del backend.");
   }
 }
     function planLabel(plan){
@@ -1964,6 +1966,21 @@ updateSnowball();
       updateLocks();
     }
 
+    (function handleStripeReturn(){
+  const qs = new URLSearchParams(window.location.search);
+  const success = qs.get("success");
+  const plan = qs.get("plan");
+  if(success === "1" && plan){
+    // OJO: esto NO valida acceso, solo actualiza UI rápido.
+    // La validación real la hace /dashboard.html llamando al backend.
+    localStorage.setItem("ctf_plan", plan.toLowerCase());
+    updateLocks();
+
+    // limpia URL para que no quede fea
+    const clean = window.location.pathname + window.location.hash;
+    window.history.replaceState({}, "", clean);
+  }
+})();
     // ✅ Snowball boot
     const snowYears = document.getElementById("snowYears");
     const snowMonthly = document.getElementById("snowMonthly");

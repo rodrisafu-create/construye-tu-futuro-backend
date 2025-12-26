@@ -1508,17 +1508,10 @@ function getPlan(){
 // ✅ pago real: Stripe
 async function buyPlan(plan){
   const API_BASE = "https://construye-tu-futuro.onrender.com";
-
-  // Stripe espera currency en minúsculas porque tu backend hace .toLowerCase()
   const currency = (currentLang === "da") ? "dkk" : "eur";
 
-  // email: debe venir del login / dashboard (guardado antes)
-  const email = (localStorage.getItem("ctf_email") || "").trim().toLowerCase();
-  if (!email) {
-    alert("Falta email. Entra en tu cuenta primero.");
-    window.location.href = "/login.html";
-    return;
-  }
+  // ✅ no pedimos nada. si tu backend exige email, mandamos uno dummy
+  const email = "guest@construyetufuturo.local";
 
   try{
     const res = await fetch(`${API_BASE}/create-checkout-session`, {
@@ -1534,9 +1527,7 @@ async function buyPlan(plan){
       return;
     }
 
-    // guardamos email para después
-    localStorage.setItem("ctf_email", email);
-
+    // ✅ directo a Stripe
     window.location.href = data.url;
   }catch(e){
     console.error(e);

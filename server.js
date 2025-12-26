@@ -42,7 +42,6 @@ if (!STRIPE_WEBHOOK_SECRET) {
 const stripe = new Stripe(STRIPE_SECRET);
 const resend = new Resend(process.env.RESEND_API_KEY);
 
-
 const FRONTEND =
   process.env.FRONTEND_ORIGIN || "https://construye-tu-futuro.netlify.app";
 
@@ -121,7 +120,7 @@ app.post(
   express.raw({ type: "application/json" }),
   async (req, res) => {
     const sig = req.headers["stripe-signature"];
-    const endpointSecret = process.env.STRIPE_WEBHOOK_SECRET;
+    const endpointSecret = STRIPE_WEBHOOK_SECRET;
 
     let event;
     try {
@@ -133,9 +132,7 @@ app.post(
     }
 
     try {
-      /* =========================================
-         ✅ ALTA: checkout.session.completed
-      ========================================= */
+      /* ✅ ALTA: checkout.session.completed */
       if (event.type === "checkout.session.completed") {
         const session = event.data.object;
 
@@ -145,7 +142,7 @@ app.post(
           session.metadata?.email;
 
         const plan = session.metadata?.plan || "starter";
-        const stripeSubscriptionId = session.subscription; // "sub_..."
+        const stripeSubscriptionId = session.subscription;
 
         console.log("✅ checkout.session.completed:", {
           email,
@@ -176,9 +173,6 @@ app.post(
               <p>Gracias por suscribirte a <b>Construye tu futuro</b>.</p>
               <p>Plan: <b>${plan}</b></p>
               <p>👉 <a href="${FRONTEND}/login.html">Entrar</a></p>
-              <p style="font-size:12px;color:#666;">
-                Si no quieres recibir más emails, ignóralos. (MVP)
-              </p>
             `,
           });
 
@@ -188,9 +182,7 @@ app.post(
         }
       }
 
-      /* =========================================
-         ✅ CAMBIOS: customer.subscription.updated
-      ========================================= */
+      /* ✅ CAMBIOS: customer.subscription.updated */
       if (event.type === "customer.subscription.updated") {
         const sub = event.data.object;
 
@@ -205,7 +197,6 @@ app.post(
           currentPeriodEnd,
         });
 
-        // Solo actualizamos lo que ya existe en DB (no inventamos user_id aquí).
         await db.query(
           `
           UPDATE subscriptions
@@ -217,9 +208,7 @@ app.post(
         );
       }
 
-      /* =========================================
-         ❌ FIN: customer.subscription.deleted
-      ========================================= */
+      /* ❌ FIN: customer.subscription.deleted */
       if (event.type === "customer.subscription.deleted") {
         const sub = event.data.object;
         const stripeSubscriptionId = sub.id;
@@ -249,11 +238,7 @@ app.post(
             html: `
               <h2>Suscripción cancelada</h2>
               <p>Tu suscripción a <b>Construye tu futuro</b> ha sido cancelada.</p>
-              <p>Si fue un error, puedes volver cuando quieras.</p>
               <p>👉 Volver a la web: <a href="${FRONTEND}">${FRONTEND}</a></p>
-              <p style="font-size:12px;color:#666;">
-                Si tienes cualquier duda, responde a este email. (MVP)
-              </p>
             `,
           });
           console.log("📨 Resend cancel:", resp?.id || resp);
@@ -288,7 +273,7 @@ function isAccessActiveRow(row) {
   if (!row) return false;
 
   const status = String(row.status || "").toLowerCase();
-  const allowedStatus = ["active", "trialing", "past_due"]; // ajusta si quieres
+  const allowedStatus = ["active", "trialing", "past_due"];
   if (!allowedStatus.includes(status)) return false;
 
   const end = row.current_period_end ? new Date(row.current_period_end) : null;
@@ -297,7 +282,9 @@ function isAccessActiveRow(row) {
   return end.getTime() > Date.now();
 }
 
-// POST /auth/login
+/* ======================================================
+   AUTH
+====================================================== */
 app.post("/auth/login", async (req, res) => {
   try {
     const email = String(req.body?.email || "").trim().toLowerCase();
@@ -334,7 +321,6 @@ app.post("/auth/login", async (req, res) => {
   }
 });
 
-// GET /auth/check?email=...
 app.get("/auth/check", async (req, res) => {
   try {
     const email = String(req.query?.email || "").trim().toLowerCase();
@@ -356,9 +342,7 @@ app.get("/auth/check", async (req, res) => {
     if (!row) return res.status(401).json({ ok: false, error: "No tienes suscripción activa." });
 
     if (!isAccessActiveRow(row)) {
-      return res
-        .status(401)
-        .json({ ok: false, error: "Tu suscripción no está activa o ha expirado." });
+      return res.status(401).json({ ok: false, error: "Tu suscripción no está activa o ha expirado." });
     }
 
     return res.json({
@@ -380,7 +364,7 @@ app.use(express.static("public"));
    3) CHECKOUT
 ====================================================== */
 const PRICE_LIVE = {
- starter: {
+  starter: {
     eur: "price_1ShJvPGi85FmhwHAYtS2Nb3C",
     dkk: "price_1ShJvhGi85FmhwHAHRjSMLLy",
   },

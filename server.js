@@ -159,19 +159,17 @@ function normalizeCurrency(c) {
 function priceIdFor(plan, currency) {
   const p = normalizePlan(plan);
   const cur = normalizeCurrency(currency);
-
-  const suffix = STRIPE_MODE === "test" ? "_TEST" : "";
+  const mode = stripeMode(); // test | live
+  const suffix = mode === "live" ? "LIVE" : "TEST";
 
   if (p === "starter") {
-    return cur === "dkk"
-      ? process.env[`PRICE_STARTER_DKK${suffix}`]
-      : process.env[`PRICE_STARTER_EUR${suffix}`];
+    return process.env[`PRICE_STARTER_${cur.toUpperCase()}_${suffix}`];
   }
+
   if (p === "premium") {
-    return cur === "dkk"
-      ? process.env[`PRICE_PREMIUM_DKK${suffix}`]
-      : process.env[`PRICE_PREMIUM_EUR${suffix}`];
+    return process.env[`PRICE_PREMIUM_${cur.toUpperCase()}_${suffix}`];
   }
+
   return null;
 }
 

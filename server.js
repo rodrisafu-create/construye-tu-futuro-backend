@@ -155,6 +155,14 @@ function normalizeCurrency(c) {
   const cur = String(c || "eur").toLowerCase();
   return cur === "dkk" ? "dkk" : "eur";
 }
+function stripeMode() {
+  const m = String(process.env.STRIPE_MODE || "test").toLowerCase();
+  return m === "live" ? "live" : "test";
+}
+
+function normalizeCurrency(currency) {
+  return String(currency || "eur").toLowerCase() === "dkk" ? "dkk" : "eur";
+}
 
 function priceIdFor(plan, currency) {
   const p = normalizePlan(plan);
@@ -165,11 +173,9 @@ function priceIdFor(plan, currency) {
   if (p === "starter") {
     return process.env[`PRICE_STARTER_${cur.toUpperCase()}_${suffix}`];
   }
-
   if (p === "premium") {
     return process.env[`PRICE_PREMIUM_${cur.toUpperCase()}_${suffix}`];
   }
-
   return null;
 }
 
